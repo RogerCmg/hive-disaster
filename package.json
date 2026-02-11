@@ -1,14 +1,14 @@
 {
-  "name": "get-shit-done-cc",
+  "name": "hive-cc",
   "version": "1.18.0",
   "description": "A meta-prompting, context engineering and spec-driven development system for Claude Code, OpenCode and Gemini by TÂCHES.",
   "bin": {
-    "get-shit-done-cc": "bin/install.js"
+    "hive-cc": "bin/install.js"
   },
   "files": [
     "bin",
     "commands",
-    "get-shit-done",
+    "hive",
     "agents",
     "hooks/dist",
     "scripts"
@@ -27,11 +27,11 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/glittercowboy/get-shit-done.git"
+    "url": "git+https://github.com/glittercowboy/hive.git"
   },
-  "homepage": "https://github.com/glittercowboy/get-shit-done",
+  "homepage": "https://github.com/glittercowboy/hive",
   "bugs": {
-    "url": "https://github.com/glittercowboy/get-shit-done/issues"
+    "url": "https://github.com/glittercowboy/hive/issues"
   },
   "engines": {
     "node": ">=16.7.0"
@@ -43,6 +43,6 @@
   "scripts": {
     "build:hooks": "node scripts/build-hooks.js",
     "prepublishOnly": "npm run build:hooks",
-    "test": "node --test get-shit-done/bin/gsd-tools.test.js"
+    "test": "node --test hive/bin/hive-tools.test.js"
   }
 }
