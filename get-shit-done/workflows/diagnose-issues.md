@@ -72,9 +72,36 @@ This runs in parallel - all gaps investigated simultaneously.
 ```
 </step>
 
+<step name="create_debug_team">
+<team_mode_setup>
+Check config:
+```bash
+DIAGNOSIS_TEAM=$(echo "$INIT" | jq -r '.teams.diagnosis_team // false')
+```
+
+**If enabled:** `TeamCreate("hive-debug-{phase}")`, set `diagnosis_mode = "team"`.
+**If fails or disabled:** set `diagnosis_mode = "standalone"`.
+</team_mode_setup>
+</step>
+
 <step name="spawn_agents">
 **Spawn debug agents in parallel:**
 
+<team_mode>
+Spawn debuggers as teammates:
+```
+For each gap:
+  Task(
+    prompt=filled_debug_subagent_prompt,
+    subagent_type="general-purpose",
+    description="Debug: {truth_short}",
+    team_name="hive-debug-{phase}",
+    name="debugger-{N}"
+  )
+```
+</team_mode>
+
+<standalone_mode>
 For each gap, fill the debug-subagent-prompt template and spawn:
 
 ```
@@ -86,6 +113,7 @@ Task(
 ```
 
 **All agents spawn in single message** (parallel execution).
+</standalone_mode>
 
 Template placeholders:
 - `{truth}`: The expected behavior that failed
@@ -101,6 +129,34 @@ Template placeholders:
 <step name="collect_results">
 **Collect root causes from agents:**
 
+<team_mode>
+**Message monitoring loop:**
+
+Monitor for messages from debugger teammates. Parse by prefix:
+
+| Prefix | Meaning | Action |
+|--------|---------|--------|
+| `ROOT CAUSE FOUND:` | Debugger found cause | Record root cause, check if it explains other gaps |
+| `FINDING:` | Intermediate discovery | Broadcast to all debuggers (they check against their gap) |
+| `INVESTIGATION INCONCLUSIVE:` | Couldn't determine cause | Mark gap as needs-manual-review |
+| `CHECKPOINT:` | Debugger needs user input | Relay checkpoint to user, send `CHECKPOINT RESPONSE:` back to debugger |
+
+**Shared root cause detection:** When debugger-1 broadcasts `FINDING: useEffect missing dependency in CommentList.tsx`, orchestrator sends to other active debuggers:
+```
+SendMessage(
+  type="broadcast",
+  content="SHARED FINDING from debugger-1: {finding}\nCheck if this explains your gap too.",
+  summary="Shared finding from debugger-1"
+)
+```
+
+If a debugger confirms the shared cause applies, it reports:
+`ROOT CAUSE FOUND: Same as debugger-1 - {cause}`
+
+This eliminates redundant investigation.
+</team_mode>
+
+<standalone_mode>
 Each agent returns with:
 ```
 ## ROOT CAUSE FOUND
@@ -131,6 +187,7 @@ If agent returns `## INVESTIGATION INCONCLUSIVE`:
 - root_cause: "Investigation inconclusive - manual review needed"
 - Note which issue needs manual attention
 - Include remaining possibilities from agent return
+</standalone_mode>
 </step>
 
 <step name="update_uat">
@@ -160,6 +217,22 @@ Commit the updated UAT.md:
 ```bash
 node ~/.claude/get-shit-done/bin/gsd-tools.js commit "docs({phase}): add root causes from diagnosis" --files ".planning/phases/XX-name/{phase}-UAT.md"
 ```
+</step>
+
+<step name="cleanup_debug_team">
+<team_mode>
+After all gaps are diagnosed (or marked inconclusive):
+
+1. Send shutdown requests to all debugger teammates
+2. Wait for shutdown confirmations
+3. `TeamDelete("hive-debug-{phase}")`
+
+If any debugger rejects shutdown (still investigating), allow a grace period before forcing cleanup.
+</team_mode>
+
+<standalone_mode>
+No cleanup needed — Task() agents terminate on return.
+</standalone_mode>
 </step>
 
 <step name="report_results">
@@ -216,4 +289,12 @@ Agents only diagnose—plan-phase --gaps handles fixes (no fix application).
 - [ ] UAT.md gaps updated with artifacts and missing
 - [ ] Debug sessions saved to ${DEBUG_DIR}/
 - [ ] Hand off to verify-work for automatic planning
+
+**Team mode additional criteria:**
+- [ ] Debug team created successfully (or graceful fallback to standalone)
+- [ ] Debuggers spawned as teammates with proper names
+- [ ] Shared findings broadcast to all active debuggers
+- [ ] Shared root causes detected and redundant investigation eliminated
+- [ ] Results collected via message monitoring (not return values)
+- [ ] Debug team cleaned up after all gaps diagnosed
 </success_criteria>

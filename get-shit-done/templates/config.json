@@ -16,7 +16,17 @@
     "task_level": false,
     "skip_checkpoints": true,
     "max_concurrent_agents": 3,
-    "min_plans_for_parallel": 2
+    "min_plans_for_parallel": 2,
+    "dynamic_scheduling": false
+  },
+  "teams": {
+    "execution_team": true,
+    "planning_team": true,
+    "research_team": true,
+    "diagnosis_team": true,
+    "qa_team": "auto",
+    "audit_team": true,
+    "mapper_team": true
   },
   "gates": {
     "confirm_project": true,

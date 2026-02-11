@@ -384,6 +384,306 @@ Check if this is greenfield or subsequent milestone:
 - If no "Validated" requirements in PROJECT.md → Greenfield (building from scratch)
 - If "Validated" requirements exist → Subsequent milestone (adding to existing app)
 
+<team_mode_setup>
+Check config for research team coordination:
+```bash
+RESEARCH_TEAM=$(echo "$INIT" | jq -r '.teams.research_team // false')
+```
+
+**If enabled:** `TeamCreate("hive-research-{project}")`, set `research_mode = "team"`.
+**If fails or disabled:** set `research_mode = "standalone"`.
+
+```bash
+RESEARCH_MODE="standalone"
+RESEARCH_TEAM_NAME="hive-research-${PROJECT_SLUG}"
+
+if [ "$RESEARCH_TEAM" = "true" ]; then
+  # Attempt team creation — fall back to standalone if unavailable
+  RESEARCH_MODE="team"
+fi
+```
+</team_mode_setup>
+
+<team_mode>
+## Team Mode Research (research_mode = "team")
+
+**Coordinated parallel research** — researchers share findings in real-time, preventing contradictions and enabling cross-pollination.
+
+Display spawning indicator:
+```
+◆ Creating research team: hive-research-{project}
+◆ Spawning 4 researchers as teammates...
+  → stack-researcher
+  → features-researcher
+  → arch-researcher
+  → pitfalls-researcher
+```
+
+Spawn researchers as teammates:
+
+```
+Task(prompt="First, read ~/.claude/agents/gsd-project-researcher.md for your role and instructions.
+
+<research_type>
+Project Research — Stack dimension for [domain].
+</research_type>
+
+<team_protocol>
+You are stack-researcher on team {RESEARCH_TEAM_NAME}.
+When you make a key finding, broadcast it:
+  SendMessage(type='broadcast', content='FINDING: [your finding]', summary='Stack finding')
+When you receive a FINDING from another researcher, incorporate it into your analysis.
+When complete, send: SendMessage(type='broadcast', content='RESEARCH COMPLETE: STACK.md written', summary='Stack research done')
+</team_protocol>
+
+<milestone_context>
+[greenfield OR subsequent]
+
+Greenfield: Research the standard stack for building [domain] from scratch.
+Subsequent: Research what's needed to add [target features] to an existing [domain] app. Don't re-research the existing system.
+</milestone_context>
+
+<question>
+What's the standard 2025 stack for [domain]?
+</question>
+
+<project_context>
+[PROJECT.md summary - core value, constraints, what they're building]
+</project_context>
+
+<downstream_consumer>
+Your STACK.md feeds into roadmap creation. Be prescriptive:
+- Specific libraries with versions
+- Clear rationale for each choice
+- What NOT to use and why
+</downstream_consumer>
+
+<quality_gate>
+- [ ] Versions are current (verify with Context7/official docs, not training data)
+- [ ] Rationale explains WHY, not just WHAT
+- [ ] Confidence levels assigned to each recommendation
+</quality_gate>
+
+<output>
+Write to: .planning/research/STACK.md
+Use template: ~/.claude/get-shit-done/templates/research-project/STACK.md
+</output>
+", subagent_type="general-purpose", model="{researcher_model}", team_name="{RESEARCH_TEAM_NAME}", name="stack-researcher", description="Stack research")
+
+Task(prompt="First, read ~/.claude/agents/gsd-project-researcher.md for your role and instructions.
+
+<research_type>
+Project Research — Features dimension for [domain].
+</research_type>
+
+<team_protocol>
+You are features-researcher on team {RESEARCH_TEAM_NAME}.
+When you make a key finding, broadcast it:
+  SendMessage(type='broadcast', content='FINDING: [your finding]', summary='Features finding')
+When you receive a FINDING from another researcher, incorporate it into your analysis.
+When complete, send: SendMessage(type='broadcast', content='RESEARCH COMPLETE: FEATURES.md written', summary='Features research done')
+</team_protocol>
+
+<milestone_context>
+[greenfield OR subsequent]
+
+Greenfield: What features do [domain] products have? What's table stakes vs differentiating?
+Subsequent: How do [target features] typically work? What's expected behavior?
+</milestone_context>
+
+<question>
+What features do [domain] products have? What's table stakes vs differentiating?
+</question>
+
+<project_context>
+[PROJECT.md summary]
+</project_context>
+
+<downstream_consumer>
+Your FEATURES.md feeds into requirements definition. Categorize clearly:
+- Table stakes (must have or users leave)
+- Differentiators (competitive advantage)
+- Anti-features (things to deliberately NOT build)
+</downstream_consumer>
+
+<quality_gate>
+- [ ] Categories are clear (table stakes vs differentiators vs anti-features)
+- [ ] Complexity noted for each feature
+- [ ] Dependencies between features identified
+</quality_gate>
+
+<output>
+Write to: .planning/research/FEATURES.md
+Use template: ~/.claude/get-shit-done/templates/research-project/FEATURES.md
+</output>
+", subagent_type="general-purpose", model="{researcher_model}", team_name="{RESEARCH_TEAM_NAME}", name="features-researcher", description="Features research")
+
+Task(prompt="First, read ~/.claude/agents/gsd-project-researcher.md for your role and instructions.
+
+<research_type>
+Project Research — Architecture dimension for [domain].
+</research_type>
+
+<team_protocol>
+You are arch-researcher on team {RESEARCH_TEAM_NAME}.
+When you make a key finding, broadcast it:
+  SendMessage(type='broadcast', content='FINDING: [your finding]', summary='Architecture finding')
+When you receive a FINDING from another researcher, incorporate it into your analysis.
+When complete, send: SendMessage(type='broadcast', content='RESEARCH COMPLETE: ARCHITECTURE.md written', summary='Architecture research done')
+
+IMPORTANT: If you receive a FINDING from stack-researcher about framework/stack choices,
+plan your architecture around those choices. Do not contradict established stack decisions.
+</team_protocol>
+
+<milestone_context>
+[greenfield OR subsequent]
+
+Greenfield: How are [domain] systems typically structured? What are major components?
+Subsequent: How do [target features] integrate with existing [domain] architecture?
+</milestone_context>
+
+<question>
+How are [domain] systems typically structured? What are major components?
+</question>
+
+<project_context>
+[PROJECT.md summary]
+</project_context>
+
+<downstream_consumer>
+Your ARCHITECTURE.md informs phase structure in roadmap. Include:
+- Component boundaries (what talks to what)
+- Data flow (how information moves)
+- Suggested build order (dependencies between components)
+</downstream_consumer>
+
+<quality_gate>
+- [ ] Components clearly defined with boundaries
+- [ ] Data flow direction explicit
+- [ ] Build order implications noted
+</quality_gate>
+
+<output>
+Write to: .planning/research/ARCHITECTURE.md
+Use template: ~/.claude/get-shit-done/templates/research-project/ARCHITECTURE.md
+</output>
+", subagent_type="general-purpose", model="{researcher_model}", team_name="{RESEARCH_TEAM_NAME}", name="arch-researcher", description="Architecture research")
+
+Task(prompt="First, read ~/.claude/agents/gsd-project-researcher.md for your role and instructions.
+
+<research_type>
+Project Research — Pitfalls dimension for [domain].
+</research_type>
+
+<team_protocol>
+You are pitfalls-researcher on team {RESEARCH_TEAM_NAME}.
+When you make a key finding, broadcast it:
+  SendMessage(type='broadcast', content='FINDING: [your finding]', summary='Pitfalls finding')
+When you receive a FINDING from another researcher, incorporate it into your analysis.
+When complete, send: SendMessage(type='broadcast', content='RESEARCH COMPLETE: PITFALLS.md written', summary='Pitfalls research done')
+
+IMPORTANT: If you receive FINDINGs from other researchers about stack/architecture choices,
+tailor your pitfalls analysis to those specific technologies and patterns.
+</team_protocol>
+
+<milestone_context>
+[greenfield OR subsequent]
+
+Greenfield: What do [domain] projects commonly get wrong? Critical mistakes?
+Subsequent: What are common mistakes when adding [target features] to [domain]?
+</milestone_context>
+
+<question>
+What do [domain] projects commonly get wrong? Critical mistakes?
+</question>
+
+<project_context>
+[PROJECT.md summary]
+</project_context>
+
+<downstream_consumer>
+Your PITFALLS.md prevents mistakes in roadmap/planning. For each pitfall:
+- Warning signs (how to detect early)
+- Prevention strategy (how to avoid)
+- Which phase should address it
+</downstream_consumer>
+
+<quality_gate>
+- [ ] Pitfalls are specific to this domain (not generic advice)
+- [ ] Prevention strategies are actionable
+- [ ] Phase mapping included where relevant
+</quality_gate>
+
+<output>
+Write to: .planning/research/PITFALLS.md
+Use template: ~/.claude/get-shit-done/templates/research-project/PITFALLS.md
+</output>
+", subagent_type="general-purpose", model="{researcher_model}", team_name="{RESEARCH_TEAM_NAME}", name="pitfalls-researcher", description="Pitfalls research")
+```
+
+**Cross-pollination loop:**
+
+The orchestrator monitors researcher messages and facilitates cross-pollination:
+
+| Message Prefix | Meaning | Orchestrator Action |
+|----------------|---------|---------------------|
+| `FINDING:` | Key discovery from a researcher | Broadcast to all other researchers |
+| `QUESTION:` | Researcher needs info from another | Route to relevant researcher |
+| `RESEARCH COMPLETE:` | Researcher finished their document | Mark researcher done, log completion |
+
+When a researcher sends a key finding, broadcast to others:
+```
+SendMessage(type="broadcast", content="FINDING from {name}: {finding}", summary="Research finding")
+```
+
+Researchers incorporate findings into their analysis (e.g., stack-researcher says "Next.js 15" -> arch-researcher plans around it, pitfalls-researcher targets Next.js-specific gotchas).
+
+When all 4 researchers complete, spawn synthesizer (can be teammate for incremental synthesis):
+
+```
+Task(prompt="
+<task>
+Synthesize research outputs into SUMMARY.md.
+</task>
+
+<team_protocol>
+You are synthesizer on team {RESEARCH_TEAM_NAME}.
+You may receive messages from researchers with late findings — incorporate them.
+When complete, send: SendMessage(type='broadcast', content='SYNTHESIS COMPLETE: SUMMARY.md written', summary='Synthesis done')
+</team_protocol>
+
+<research_files>
+Read these files:
+- .planning/research/STACK.md
+- .planning/research/FEATURES.md
+- .planning/research/ARCHITECTURE.md
+- .planning/research/PITFALLS.md
+</research_files>
+
+<output>
+Write to: .planning/research/SUMMARY.md
+Use template: ~/.claude/get-shit-done/templates/research-project/SUMMARY.md
+Commit after writing.
+</output>
+", subagent_type="gsd-research-synthesizer", model="{synthesizer_model}", team_name="{RESEARCH_TEAM_NAME}", name="synthesizer", description="Synthesize research")
+```
+
+After synthesizer completes, clean up the research team:
+```
+# Send shutdown requests to all researchers and synthesizer
+for researcher in [stack-researcher, features-researcher, arch-researcher, pitfalls-researcher, synthesizer]:
+  SendMessage(type="shutdown_request", recipient="{researcher}", content="Research complete. Shutting down.")
+
+# Wait for shutdown confirmations, then delete team
+TeamDelete()
+```
+</team_mode>
+
+<standalone_mode>
+## Standalone Mode Research (research_mode = "standalone")
+
+Identical to existing flow. Uses Task() for isolated parallel spawning — no cross-pollination.
+
 Display spawning indicator:
 ```
 ◆ Spawning 4 researchers in parallel...
@@ -580,6 +880,7 @@ Commit after writing.
 </output>
 ", subagent_type="gsd-research-synthesizer", model="{synthesizer_model}", description="Synthesize research")
 ```
+</standalone_mode>
 
 Display research complete banner and key findings:
 ```
@@ -952,6 +1253,14 @@ Present completion with next steps:
 - [ ] STATE.md initialized
 - [ ] REQUIREMENTS.md traceability updated
 - [ ] User knows next step is `/gsd:discuss-phase 1`
+
+**Team mode additional (if research_mode = "team"):**
+- [ ] Research team created: hive-research-{project}
+- [ ] 4 researchers spawned as teammates (not isolated Task() calls)
+- [ ] Cross-pollination loop active — findings broadcast between researchers
+- [ ] Researchers incorporated each other's findings (no contradictions in output)
+- [ ] Synthesizer received coordinated research (consistent stack/arch/features)
+- [ ] Research team shut down after synthesis complete
 
 **Atomic commits:** Each phase commits its artifacts immediately. If context is lost, artifacts persist.
 

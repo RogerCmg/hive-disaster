@@ -311,7 +311,7 @@ Present summary:
 [List from Issues section]
 ```
 
-**If issues > 0:** Proceed to `diagnose_issues`
+**If issues > 0:** Proceed to `create_qa_team`
 
 **If issues == 0:**
 ```
@@ -322,9 +322,64 @@ All tests passed. Ready to continue.
 ```
 </step>
 
+<step name="create_qa_team">
+<team_mode_setup>
+Check config:
+```bash
+QA_TEAM=$(echo "$INIT" | jq -r '.teams.qa_team // false')
+GAP_COUNT={number of gaps from UAT}
+```
+
+**Auto mode:** If `qa_team` is "auto", enable team mode when `GAP_COUNT >= 5`.
+**If `qa_team` is true OR auto-triggered:** `TeamCreate("hive-qa-{phase}")`, set `qa_mode = "team"`.
+**If TeamCreate fails or disabled:** set `qa_mode = "standalone"`.
+</team_mode_setup>
+</step>
+
 <step name="diagnose_issues">
 **Diagnose root causes before planning fixes:**
 
+<team_mode>
+**Streaming diagnosis with early planning:**
+
+```
+---
+
+{N} issues found. Diagnosing root causes (streaming pipeline)...
+
+Spawning QA team: debuggers + planner + checker
+```
+
+Spawn planner and checker as teammates in the QA team (they wait for work):
+
+```
+Task(subagent_type="general-purpose", team_name="hive-qa-{phase}", name="planner", ...)
+Task(subagent_type="gsd-plan-checker", team_name="hive-qa-{phase}", name="checker", ...)
+```
+
+For each gap, spawn a debugger teammate:
+
+```
+Task(subagent_type="general-purpose", team_name="hive-qa-{phase}", name="debugger-{N}", ...)
+```
+
+**Stream processing loop:**
+Monitor messages. When a debugger sends `ROOT CAUSE FOUND:`:
+1. Update UAT.md with the diagnosis
+2. Immediately send to planner: `PLAN GAP: {gap_details_with_root_cause}`
+3. Don't wait for other debuggers to finish
+
+When planner sends `GAP PLAN READY: {plan_file}`:
+1. Send to checker: `VERIFY: {plan_file}, focus on: [{plan_id}]`
+
+When checker sends `VERIFICATION PASSED:` or `ISSUES FOUND:`:
+1. If issues: send `REVISE:` to planner with targeted issues
+2. If passed: mark gap as planned
+
+Continue until all gaps are diagnosed + planned + verified.
+</team_mode>
+
+<standalone_mode>
 ```
 ---
 
@@ -341,9 +396,16 @@ Spawning parallel debug agents to investigate each issue.
 - Proceed to `plan_gap_closure`
 
 Diagnosis runs automatically - no user prompt. Parallel agents investigate simultaneously, so overhead is minimal and fixes are more accurate.
+</standalone_mode>
 </step>
 
 <step name="plan_gap_closure">
+<team_mode>
+**Already handled in streaming loop above.** Planner receives individual gap diagnoses as they arrive from debuggers via `PLAN GAP:` messages.
+Skip this step in team mode - planning is integrated into the streaming loop.
+</team_mode>
+
+<standalone_mode>
 **Auto-plan fixes from diagnosed gaps:**
 
 Display:
@@ -390,9 +452,16 @@ Plans must be executable prompts.
 On return:
 - **PLANNING COMPLETE:** Proceed to `verify_gap_plans`
 - **PLANNING INCONCLUSIVE:** Report and offer manual intervention
+</standalone_mode>
 </step>
 
 <step name="verify_gap_plans">
+<team_mode>
+**Already handled in streaming loop above.** Checker verifies each plan as it arrives from the planner via `VERIFY:` messages.
+Skip this step in team mode - verification is integrated into the streaming loop.
+</team_mode>
+
+<standalone_mode>
 **Verify fix plans with checker:**
 
 Display:
@@ -436,9 +505,21 @@ Return one of:
 On return:
 - **VERIFICATION PASSED:** Proceed to `present_ready`
 - **ISSUES FOUND:** Proceed to `revision_loop`
+</standalone_mode>
 </step>
 
 <step name="revision_loop">
+<team_mode>
+**Handled inline in streaming loop.** When checker reports issues for a specific plan:
+- Send `REVISE:` to planner with targeted issues for the specific gap
+- Planner revises with full context of that gap's root cause and checker feedback
+- Send `RE-VERIFY:` to checker with changed plans
+- Max 3 iterations per plan (tracked independently per gap)
+
+If a plan exceeds 3 revision iterations, mark it as needing manual intervention and continue processing other gaps. Report unresolved plans in `present_ready`.
+</team_mode>
+
+<standalone_mode>
 **Iterate planner ↔ checker until plans pass (max 3):**
 
 **If iteration_count < 3:**
@@ -487,6 +568,26 @@ Offer options:
 3. Abandon (exit, user runs /gsd:plan-phase manually)
 
 Wait for user response.
+</standalone_mode>
+</step>
+
+<step name="qa_team_cleanup">
+<team_mode>
+Send shutdown requests to all teammates (planner, checker, all debuggers):
+
+```
+SendMessage(type="shutdown_request", recipient="planner", content="All gaps resolved. Shutting down.")
+SendMessage(type="shutdown_request", recipient="checker", content="All gaps resolved. Shutting down.")
+# For each debugger:
+SendMessage(type="shutdown_request", recipient="debugger-{N}", content="All gaps resolved. Shutting down.")
+```
+
+Wait for shutdown confirmations. Then clean up the team:
+
+```
+TeamDelete("hive-qa-{phase}")
+```
+</team_mode>
 </step>
 
 <step name="present_ready">
@@ -567,4 +668,10 @@ Default to **major** if unclear. User can correct if needed.
 - [ ] If issues: gsd-plan-checker verifies fix plans
 - [ ] If issues: revision loop until plans pass (max 3 iterations)
 - [ ] Ready for `/gsd:execute-phase --gaps-only` when complete
+- [ ] Team mode: QA team created (if config enabled)
+- [ ] Team mode: streaming pipeline - planner starts on first diagnosis
+- [ ] Team mode: checker verifies each plan as it arrives
+- [ ] Team mode: revision loop per plan (not batched)
+- [ ] Team mode: team cleaned up after all gaps resolved
 </success_criteria>
+</output>

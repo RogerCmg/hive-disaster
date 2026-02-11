@@ -145,6 +145,29 @@ UAT_CONTENT=$(echo "$INIT" | jq -r '.uat_content // empty')
 CONTEXT_CONTENT=$(echo "$INIT" | jq -r '.context_content // empty')
 ```
 
+## 7.5. Create Planning Team (if enabled)
+
+<team_mode_setup>
+
+Check config for team mode:
+```bash
+PLANNING_TEAM=$(echo "$INIT" | jq -r '.teams.planning_team // false')
+```
+
+**If `planning_team` is true AND both planner and checker will be needed (not `--skip-verify`):**
+
+```
+TeamCreate("hive-plan-{phase_number}-{phase_slug}")
+```
+
+Set `planning_mode = "team"`.
+
+**If TeamCreate fails:** Log warning, set `planning_mode = "standalone"`. Continue with classic Task() spawns.
+
+**If `planning_team` is false OR `--skip-verify`:** Set `planning_mode = "standalone"`.
+
+</team_mode_setup>
+
 ## 8. Spawn gsd-planner Agent
 
 Display banner:
@@ -197,6 +220,30 @@ Output consumed by /gsd:execute-phase. Plans need:
 </quality_gate>
 ```
 
+<team_mode>
+**If `planning_mode == "team"`:**
+
+Spawn planner as teammate:
+```
+Task(
+  prompt="First, read ~/.claude/agents/gsd-planner.md for your role and instructions.\n\n" + filled_prompt,
+  subagent_type="general-purpose",
+  model="{planner_model}",
+  description="Plan Phase {phase}",
+  team_name="hive-plan-{phase_number}-{phase_slug}",
+  name="planner"
+)
+```
+
+Monitor for planner messages. The planner will send one of:
+- `PLANNING COMPLETE:` → proceed to step 10 (spawn checker)
+- `CHECKPOINT:` → relay to user, send `CHECKPOINT RESPONSE:` back
+- `PLANNING INCONCLUSIVE:` → handle as step 9 inconclusive path
+</team_mode>
+
+<standalone_mode>
+**If `planning_mode == "standalone"`:**
+
 ```
 Task(
   prompt="First, read ~/.claude/agents/gsd-planner.md for your role and instructions.\n\n" + filled_prompt,
@@ -205,12 +252,36 @@ Task(
   description="Plan Phase {phase}"
 )
 ```
+</standalone_mode>
 
 ## 9. Handle Planner Return
 
+<team_mode>
+**Message monitoring loop:**
+
+Wait for planner message. Parse by prefix:
+
+**`PLANNING COMPLETE:`** → Extract plan count, wave count. Display confirmation. If `--skip-verify` or `plan_checker_enabled` is false: skip to step 13. Otherwise: step 10.
+
+**`CHECKPOINT:`** → Parse checkpoint type and details. Present to user. Wait for user response. Send back:
+```
+SendMessage(
+  type="message",
+  recipient="planner",
+  content="CHECKPOINT RESPONSE: {user_response}",
+  summary="Checkpoint response for planner"
+)
+```
+Continue monitoring for next planner message.
+
+**`PLANNING INCONCLUSIVE:`** → Show attempts, offer: Add context / Retry / Manual. If retry, send message to planner to try again.
+</team_mode>
+
+<standalone_mode>
 - **`## PLANNING COMPLETE`:** Display plan count. If `--skip-verify` or `plan_checker_enabled` is false (from init): skip to step 13. Otherwise: step 10.
 - **`## CHECKPOINT REACHED`:** Present to user, get response, spawn continuation (step 12)
 - **`## PLANNING INCONCLUSIVE`:** Show attempts, offer: Add context / Retry / Manual
+</standalone_mode>
 
 ## 10. Spawn gsd-plan-checker Agent
 
@@ -252,6 +323,35 @@ IMPORTANT: Plans MUST honor user decisions. Flag as issue if plans contradict.
 </expected_output>
 ```
 
+<team_mode>
+**If `planning_mode == "team"`:**
+
+Spawn checker as teammate:
+```
+Task(
+  prompt=checker_prompt,
+  subagent_type="gsd-plan-checker",
+  model="{checker_model}",
+  description="Verify Phase {phase} plans",
+  team_name="hive-plan-{phase_number}-{phase_slug}",
+  name="checker"
+)
+```
+
+Send verification request:
+```
+SendMessage(
+  type="message",
+  recipient="checker",
+  content="VERIFY: Plans ready at {phase_dir}, focus on: [all]",
+  summary="Verify all plans"
+)
+```
+</team_mode>
+
+<standalone_mode>
+**If `planning_mode == "standalone"`:**
+
 ```
 Task(
   prompt=checker_prompt,
@@ -260,14 +360,69 @@ Task(
   description="Verify Phase {phase} plans"
 )
 ```
+</standalone_mode>
 
 ## 11. Handle Checker Return
 
+<team_mode>
+Wait for checker message. Parse by prefix:
+
+**`VERIFICATION PASSED:`** → Display confirmation. Proceed to step 12.5 (team cleanup) then step 13.
+
+**`ISSUES FOUND:`** → Display issues. Check iteration count. Proceed to step 12.
+</team_mode>
+
+<standalone_mode>
 - **`## VERIFICATION PASSED`:** Display confirmation, proceed to step 13.
 - **`## ISSUES FOUND`:** Display issues, check iteration count, proceed to step 12.
+</standalone_mode>
 
 ## 12. Revision Loop (Max 3 Iterations)
 
+<team_mode>
+**Messaging-based revision (0 additional spawns):**
+
+Track `iteration_count` (starts at 1 after initial plan + check).
+
+**If iteration_count < 3:**
+
+Display: `Sending revision request to planner... (iteration {N}/3)`
+
+Send revision request to planner:
+```
+SendMessage(
+  type="message",
+  recipient="planner",
+  content="REVISE: {structured_issues_from_checker}",
+  summary="Revise plans: {N} issues"
+)
+```
+
+Wait for planner response. Expect `REVISION COMPLETE:` message.
+Parse changed plan IDs from message.
+
+Send targeted re-verification to checker:
+```
+SendMessage(
+  type="message",
+  recipient="checker",
+  content="RE-VERIFY: changed plans [{changed_plan_ids}]\nRevision summary: {planner_summary}",
+  summary="Re-verify changed plans"
+)
+```
+
+Wait for checker response. Route to:
+- `VERIFICATION PASSED:` → step 12.5 (team cleanup) then step 13
+- `ISSUES FOUND:` → increment iteration_count, repeat
+
+**If iteration_count >= 3:**
+
+Display: `Max iterations reached. {N} issues remain:` + issue list
+
+Offer: 1) Force proceed, 2) Provide guidance and retry, 3) Abandon
+</team_mode>
+
+<standalone_mode>
 Track `iteration_count` (starts at 1 after initial plan + check).
 
 **If iteration_count < 3:**
@@ -316,6 +471,26 @@ After planner returns -> spawn checker again (step 10), increment iteration_coun
 Display: `Max iterations reached. {N} issues remain:` + issue list
 
 Offer: 1) Force proceed, 2) Provide guidance and retry, 3) Abandon
+</standalone_mode>
+
+## 12.5. Team Cleanup
+
+<team_mode>
+**If `planning_mode == "team"`:**
+
+Send shutdown requests to teammates:
+```
+SendMessage(type="shutdown_request", recipient="planner", content="Planning complete")
+SendMessage(type="shutdown_request", recipient="checker", content="Planning complete")
+```
+
+Wait for shutdown confirmations. If a teammate doesn't respond within reasonable time, proceed anyway (teammates will be cleaned up when the team is deleted).
+
+Clean up team:
+```
+TeamDelete()
+```
+</team_mode>
 
 ## 13. Present Final Status
 
@@ -373,4 +548,12 @@ Verification: {Passed | Passed with override | Skipped}
 - [ ] Verification passed OR user override OR max iterations with user decision
 - [ ] User sees status between agent spawns
 - [ ] User knows next steps
+- [ ] Team mode: planning team created (if config enabled)
+- [ ] Team mode: planner spawned as teammate (not standalone Task)
+- [ ] Team mode: checker spawned as teammate (not standalone Task)
+- [ ] Team mode: revision loop uses messaging (0 additional spawns)
+- [ ] Team mode: checker receives changed plan IDs for targeted re-verification
+- [ ] Team mode: team cleaned up after planning completes
+- [ ] Team mode: graceful fallback to standalone if TeamCreate fails
 </success_criteria>
+</output>

@@ -81,12 +81,60 @@ mkdir -p .planning/codebase
 Continue to spawn_agents.
 </step>
 
+<step name="create_mapper_team">
+<team_mode_setup>
+Check config:
+```bash
+MAPPER_TEAM=$(echo "$INIT" | jq -r '.teams.mapper_team // false')
+```
+
+**If enabled:** `TeamCreate("hive-map-codebase")`, set `mapper_mode = "team"`.
+**If fails or disabled:** set `mapper_mode = "standalone"`.
+</team_mode_setup>
+</step>
+
 <step name="spawn_agents">
 Spawn 4 parallel gsd-codebase-mapper agents.
 
-Use Task tool with `subagent_type="gsd-codebase-mapper"`, `model="{mapper_model}"`, and `run_in_background=true` for parallel execution.
-
 **CRITICAL:** Use the dedicated `gsd-codebase-mapper` agent, NOT `Explore`. The mapper agent writes documents directly.
+
+**MODE SPLIT:** Team mode vs. standalone mode (fallback).
+
+<team_mode>
+## Team Mode (mapper_mode="team")
+
+Spawn mappers as teammates:
+```
+Task(..., team_name="hive-map-codebase", name="tech-mapper")
+Task(..., team_name="hive-map-codebase", name="arch-mapper")
+Task(..., team_name="hive-map-codebase", name="quality-mapper")
+Task(..., team_name="hive-map-codebase", name="concerns-mapper")
+```
+
+Each mapper gets the same prompt as standalone mode (see below) plus team protocol:
+```
+<team_protocol>
+You are {name} on team hive-map-codebase.
+When you discover something cross-cutting, broadcast with prefix FINDING: {description}.
+When complete, send: MAPPING COMPLETE: {focus} | files: [{docs}] | lines: {counts}
+</team_protocol>
+```
+
+**Cross-pollination loop:**
+Monitor for mapper messages:
+
+| Prefix | Action |
+|--------|--------|
+| `MAPPING COMPLETE:` | Mapper finished, documents written |
+| `FINDING:` | Broadcast to all mappers for terminology/context alignment |
+
+When a mapper discovers something cross-cutting (e.g., "This project uses camelCase everywhere"), broadcast to others so all documents use consistent terminology.
+</team_mode>
+
+<standalone_mode>
+## Standalone Mode (mapper_mode="standalone" — fallback)
+
+Use Task tool with `subagent_type="gsd-codebase-mapper"`, `model="{mapper_model}"`, and `run_in_background=true` for parallel execution.
 
 **Agent 1: Tech Focus**
 
@@ -178,12 +226,34 @@ Write this document to .planning/codebase/:
 
 Explore thoroughly. Write document directly using template. Return confirmation only.
 ```
+</standalone_mode>
 
 Continue to collect_confirmations.
 </step>
 
 <step name="collect_confirmations">
-Wait for all 4 agents to complete.
+Wait for all 4 mappers to complete.
+
+<team_mode>
+## Team Mode Collection (mapper_mode="team")
+
+Collect via messages instead of reading output files.
+Each mapper sends `MAPPING COMPLETE: {focus} | files: [{docs}] | lines: {counts}`.
+
+Wait for all 4 `MAPPING COMPLETE:` messages. Track which mappers have reported:
+
+| Mapper | Status |
+|--------|--------|
+| tech-mapper | waiting / complete |
+| arch-mapper | waiting / complete |
+| quality-mapper | waiting / complete |
+| concerns-mapper | waiting / complete |
+
+If any mapper fails or goes unresponsive, note the failure and continue with successful documents.
+</team_mode>
+
+<standalone_mode>
+## Standalone Mode Collection (mapper_mode="standalone" — fallback)
 
 Read each agent's output file to collect confirmations.
 
@@ -202,6 +272,7 @@ Ready for orchestrator summary.
 **What you receive:** Just file paths and line counts. NOT document contents.
 
 If any agent failed, note the failure and continue with successful documents.
+</standalone_mode>
 
 Continue to verify_output.
 </step>
@@ -256,6 +327,30 @@ Wait for user confirmation before continuing to commit_codebase_map.
 **If SECRETS_FOUND=false:**
 
 Continue to commit_codebase_map.
+</step>
+
+<step name="cleanup_mapper_team">
+<team_mode>
+## Team Cleanup (mapper_mode="team")
+
+Shut down the mapper team after all documents are verified:
+```
+# Send shutdown requests to all mapper teammates
+SendMessage(type="shutdown_request", recipient="tech-mapper", content="Mapping complete. Shutting down.")
+SendMessage(type="shutdown_request", recipient="arch-mapper", content="Mapping complete. Shutting down.")
+SendMessage(type="shutdown_request", recipient="quality-mapper", content="Mapping complete. Shutting down.")
+SendMessage(type="shutdown_request", recipient="concerns-mapper", content="Mapping complete. Shutting down.")
+```
+
+Wait for shutdown confirmations. Then:
+```
+TeamDelete()
+```
+</team_mode>
+
+<standalone_mode>
+No cleanup needed — Task agents terminate on completion.
+</standalone_mode>
 </step>
 
 <step name="commit_codebase_map">
@@ -318,10 +413,14 @@ End workflow.
 
 <success_criteria>
 - .planning/codebase/ directory created
-- 4 parallel gsd-codebase-mapper agents spawned with run_in_background=true
+- Team mode detected and mapper team created (if enabled in config)
+- 4 parallel gsd-codebase-mapper agents spawned (as teammates in team mode, with run_in_background=true in standalone mode)
 - Agents write documents directly (orchestrator doesn't receive document contents)
-- Read agent output files to collect confirmations
+- Team mode: cross-pollination of FINDING: messages for consistent terminology
+- Team mode: collect confirmations via MAPPING COMPLETE: messages
+- Standalone mode: read agent output files to collect confirmations
 - All 7 codebase documents exist
+- Team mode: mapper team shut down after verification
 - Clear completion summary with line counts
 - User offered clear next steps in GSD style
 </success_criteria>

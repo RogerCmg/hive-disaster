@@ -33,7 +33,122 @@ node ~/.claude/get-shit-done/bin/gsd-tools.js phases list
 - Extract milestone definition of done from ROADMAP.md
 - Extract requirements mapped to this milestone from REQUIREMENTS.md
 
+## 1.5. Audit Team Setup
+
+<team_mode_setup>
+Check config for audit team coordination:
+```bash
+AUDIT_TEAM=$(echo "$INIT" | jq -r '.teams.audit_team // false')
+```
+
+**If enabled AND phase_count >= 3:** `TeamCreate("hive-audit-{milestone}")`, set `audit_mode = "team"`.
+**If fails or disabled:** set `audit_mode = "standalone"`.
+
+```bash
+AUDIT_MODE="standalone"
+AUDIT_TEAM_NAME="hive-audit-${MILESTONE_VERSION}"
+
+if [ "$AUDIT_TEAM" = "true" ] && [ "$PHASE_COUNT" -ge 3 ]; then
+  # Attempt team creation — fall back to standalone if unavailable
+  AUDIT_MODE="team"
+fi
+```
+
+**Rationale for phase_count >= 3 threshold:** With fewer than 3 phases, the overhead of team coordination exceeds the benefit of incremental analysis. Sequential reading is fast enough.
+</team_mode_setup>
+
 ## 2. Read All Phase Verifications
+
+<team_mode>
+## Team Mode Phase Reading (audit_mode = "team")
+
+**Incremental audit** — phase readers send data to integration checker as they complete, enabling earlier cross-phase detection.
+
+Spawn the integration checker FIRST (it will receive data incrementally):
+
+```
+Task(
+  subagent_type="gsd-integration-checker",
+  model="{integration_checker_model}",
+  team_name="{AUDIT_TEAM_NAME}",
+  name="integration-checker",
+  prompt="You are the integration checker on team {AUDIT_TEAM_NAME}.
+You will receive PHASE DATA messages incrementally as phase readers complete.
+
+<team_protocol>
+You are integration-checker on team {AUDIT_TEAM_NAME}.
+As you receive PHASE DATA messages, begin analyzing cross-phase issues.
+Do NOT wait for all phases — start checking wiring as data arrives.
+When you receive 'ALL PHASES LOADED', run full cross-phase analysis and report.
+Send your final report as: SendMessage(type='message', recipient='team-lead', content='AUDIT COMPLETE: {report}', summary='Audit report ready')
+</team_protocol>
+
+<task>
+Check cross-phase integration and E2E flows.
+Phases: {phase_dirs}
+Verify cross-phase wiring and E2E user flows.
+</task>
+"
+)
+```
+
+Then spawn a phase-reader teammate per phase:
+
+For each phase:
+```
+Task(
+  subagent_type="general-purpose",
+  model="{researcher_model}",
+  team_name="{AUDIT_TEAM_NAME}",
+  name="reader-{phase_slug}",
+  prompt="You are reader-{phase_slug} on team {AUDIT_TEAM_NAME}.
+
+<team_protocol>
+Read VERIFICATION.md and SUMMARYs for phase {phase_number}-{phase_name}.
+Extract: status, critical gaps, non-critical gaps, anti-patterns, requirements coverage.
+When complete, send findings to team lead:
+  SendMessage(type='message', recipient='team-lead',
+    content='PHASE VERIFIED: {phase_slug} | status={status} | gaps={count} | debt={count}\n{details}',
+    summary='Phase {phase_number} verified')
+</team_protocol>
+
+<files_to_read>
+- {phase_dir}/*-VERIFICATION.md
+- {phase_dir}/*/SUMMARY.md
+</files_to_read>
+
+<extract>
+- Status: passed | gaps_found
+- Critical gaps: (if any — these are blockers)
+- Non-critical gaps: tech debt, deferred items, warnings
+- Anti-patterns found: TODOs, stubs, placeholders
+- Requirements coverage: which requirements satisfied/blocked
+</extract>
+
+If VERIFICATION.md is missing, send: PHASE VERIFIED: {phase_slug} | status=UNVERIFIED | gaps=BLOCKER
+"
+)
+```
+
+**Incremental feed to integration checker:**
+
+As each reader sends `PHASE VERIFIED:`, relay phase data to integration checker:
+```
+SendMessage(
+  type="message",
+  recipient="integration-checker",
+  content="PHASE DATA: {phase_data}",
+  summary="Phase {N} data for integration check"
+)
+```
+
+The integration checker can start analyzing cross-phase issues as data arrives (e.g., after receiving phases 1 and 2, it can already check wiring between them without waiting for phases 3-5).
+
+If a phase reader reports `status=UNVERIFIED`, flag it immediately — this is a blocker.
+</team_mode>
+
+<standalone_mode>
+## Standalone Mode Phase Reading (audit_mode = "standalone")
 
 For each phase directory, read the VERIFICATION.md:
 
@@ -51,8 +166,30 @@ From each VERIFICATION.md, extract:
 - **Requirements coverage:** which requirements satisfied/blocked
 
 If a phase is missing VERIFICATION.md, flag it as "unverified phase" — this is a blocker.
+</standalone_mode>
 
 ## 3. Spawn Integration Checker
+
+<team_mode>
+## Team Mode Integration Check (audit_mode = "team")
+
+Integration checker was already spawned in Step 2 and has been receiving data incrementally.
+
+After all phase readers complete, send the final trigger:
+```
+SendMessage(
+  type="message",
+  recipient="integration-checker",
+  content="ALL PHASES LOADED. Run full cross-phase analysis now. Verify E2E user flows end-to-end. Report all wiring gaps, broken flows, and integration issues.",
+  summary="All phases loaded — run full analysis"
+)
+```
+
+Wait for integration checker's final report (`AUDIT COMPLETE:` message).
+</team_mode>
+
+<standalone_mode>
+## Standalone Mode Integration Check (audit_mode = "standalone")
 
 With phase context collected:
 
@@ -69,6 +206,7 @@ Verify cross-phase wiring and E2E user flows.",
   model="{integration_checker_model}"
 )
 ```
+</standalone_mode>
 
 ## 4. Collect Results
 
@@ -118,6 +256,21 @@ Plus full markdown report with tables for requirements, phases, integration, tec
 - `passed` — all requirements met, no critical gaps, minimal tech debt
 - `gaps_found` — critical blockers exist
 - `tech_debt` — no blockers but accumulated deferred items need review
+
+## 6.5. Team Cleanup
+
+<team_mode>
+After audit report is aggregated, shut down the audit team:
+```
+# Send shutdown requests to all phase readers and integration checker
+for reader in phase_readers:
+  SendMessage(type="shutdown_request", recipient="{reader}", content="Audit complete. Shutting down.")
+SendMessage(type="shutdown_request", recipient="integration-checker", content="Audit complete. Shutting down.")
+
+# Wait for shutdown confirmations, then delete team
+TeamDelete()
+```
+</team_mode>
 
 ## 7. Present Results
 
@@ -238,4 +391,13 @@ All requirements met. No critical blockers. Accumulated tech debt needs review.
 - [ ] Integration checker spawned for cross-phase wiring
 - [ ] v{version}-MILESTONE-AUDIT.md created
 - [ ] Results presented with actionable next steps
+
+**Team mode additional (if audit_mode = "team"):**
+- [ ] Audit team created: hive-audit-{milestone}
+- [ ] Integration checker spawned first (receives data incrementally)
+- [ ] Phase readers spawned as teammates (one per phase)
+- [ ] Phase data relayed to integration checker as each reader completes
+- [ ] Integration checker started cross-phase analysis before all phases loaded
+- [ ] Final full analysis triggered after all phase readers complete
+- [ ] Audit team shut down after report aggregated
 </success_criteria>

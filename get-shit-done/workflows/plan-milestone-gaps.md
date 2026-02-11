@@ -25,7 +25,26 @@ If no audit file exists or has no gaps, error:
 No audit gaps found. Run `/gsd:audit-milestone` first.
 ```
 
-## 2. Prioritize Gaps
+## 2. Load Debug Session Insights (if available)
+
+<step name="load_debug_insights">
+Check for resolved debug sessions:
+```bash
+ls .planning/debug/resolved/*.md 2>/dev/null
+```
+
+**If debug sessions exist:**
+- Read each resolved debug session
+- Extract root causes and file patterns
+- Use to inform gap grouping:
+  - Gaps sharing a root cause → same fix phase
+  - Gaps in related files → adjacent phases
+  - Gaps from systemic issues → dedicated cleanup phase
+
+**If no debug sessions:** Continue with standard gap grouping.
+</step>
+
+## 3. Prioritize Gaps
 
 Group gaps by priority from REQUIREMENTS.md:
 
@@ -37,7 +56,7 @@ Group gaps by priority from REQUIREMENTS.md:
 
 For integration/flow gaps, infer priority from affected requirements.
 
-## 3. Group Gaps into Phases
+## 4. Group Gaps into Phases
 
 Cluster related gaps into logical phases:
 
@@ -46,6 +65,16 @@ Cluster related gaps into logical phases:
 - Same subsystem (auth, API, UI) → combine
 - Dependency order (fix stubs before wiring)
 - Keep phases focused: 2-4 tasks each
+
+<team_mode_insight>
+When grouping gaps into phases, prefer grouping by:
+1. **Shared root cause** (from debug sessions) — gaps with same root cause get fixed together
+2. **Related files** (from debug sessions) — gaps in overlapping files
+3. **Dependency** (standard) — fix foundation before features
+4. **Severity** (standard) — blockers first
+
+This produces more targeted fix phases than grouping by symptom alone.
+</team_mode_insight>
 
 **Example grouping:**
 ```
@@ -60,7 +89,7 @@ Gap: Flow "View dashboard" broken at data fetch
   - Render user data
 ```
 
-## 4. Determine Phase Numbers
+## 5. Determine Phase Numbers
 
 Find highest existing phase:
 ```bash
@@ -72,7 +101,7 @@ HIGHEST=$(echo "$PHASES" | jq -r '.directories[-1]')
 New phases continue from there:
 - If Phase 5 is highest, gaps become Phase 6, 7, 8...
 
-## 5. Present Gap Closure Plan
+## 6. Present Gap Closure Plan
 
 ```markdown
 ## Gap Closure Plan
@@ -109,7 +138,7 @@ Create these {X} phases? (yes / adjust / defer all optional)
 
 Wait for user confirmation.
 
-## 6. Update ROADMAP.md
+## 7. Update ROADMAP.md
 
 Add new phases to current milestone:
 
@@ -123,19 +152,19 @@ Add new phases to current milestone:
 ...
 ```
 
-## 7. Create Phase Directories
+## 8. Create Phase Directories
 
 ```bash
 mkdir -p ".planning/phases/{NN}-{name}"
 ```
 
-## 8. Commit Roadmap Update
+## 9. Commit Roadmap Update
 
 ```bash
 node ~/.claude/get-shit-done/bin/gsd-tools.js commit "docs(roadmap): add gap closure phases {N}-{M}" --files .planning/ROADMAP.md
 ```
 
-## 9. Offer Next Steps
+## 10. Offer Next Steps
 
 ```markdown
 ## ✓ Gap Closure Phases Created
@@ -246,7 +275,10 @@ becomes:
 
 <success_criteria>
 - [ ] MILESTONE-AUDIT.md loaded and gaps parsed
+- [ ] Debug session insights loaded (if available)
 - [ ] Gaps prioritized (must/should/nice)
+- [ ] Gaps grouped by root cause when debug data exists
+- [ ] Shared root causes produce consolidated fix phases
 - [ ] Gaps grouped into logical phases
 - [ ] User confirmed phase plan
 - [ ] ROADMAP.md updated with new phases

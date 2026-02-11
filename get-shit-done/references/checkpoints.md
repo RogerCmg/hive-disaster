@@ -278,6 +278,10 @@ When Claude encounters `type="checkpoint:*"`:
 4. **Verify if possible** - check files, run tests, whatever is specified
 5. **Resume execution** - continue to next task only after confirmation
 
+**Team mode override:** If running as team member, steps 2-5 above are replaced
+by the team_mode_checkpoints protocol. Send message instead of displaying.
+Wait for message instead of waiting for user input directly.
+
 **For checkpoint:human-verify:**
 ```
 ╔═══════════════════════════════════════════════════════╗
@@ -356,6 +360,207 @@ I'll verify: vercel whoami returns your account
 ```
 </execution_protocol>
 
+<team_mode_checkpoints>
+
+## Team Mode Checkpoint Protocol
+
+When running as a teammate in an execution team (Hive mode), checkpoints use
+messaging instead of die-and-respawn. The executor stays alive with full context.
+
+**Detection:** If you were spawned with a `<team_protocol>` block in your prompt,
+you are in team mode. Use SendMessage for checkpoints. NEVER use checkpoint_return_format.
+NEVER return/exit at checkpoints.
+
+### Protocol
+
+1. **Hit checkpoint task** -> STOP execution (do not proceed to next task)
+2. **Send checkpoint message** to team lead:
+
+```
+SendMessage(
+  type="message",
+  recipient="{team_lead}",
+  content="CHECKPOINT: {type}
+PLAN: {plan_id}
+PROGRESS: {completed}/{total}
+
+### Checkpoint Details
+{type-specific content}
+
+### Awaiting
+{what is needed from user}",
+  summary="Checkpoint: {type} for {plan_id}"
+)
+```
+
+3. **Go idle** — do NOT proceed, do NOT poll, do NOT retry. Wait for incoming message.
+4. **Receive response** from team lead: `CHECKPOINT_RESPONSE: {user_response}`
+5. **Resume execution** based on checkpoint type:
+
+| Checkpoint Type | Response | Resume Action |
+|----------------|----------|---------------|
+| human-verify | "approved" | Continue to next task |
+| human-verify | issue description | Address issues, re-verify, send new checkpoint if needed |
+| decision | "{option_id}" | Implement selected option, continue |
+| human-action | "done" | Run verification command, if passes continue, if fails send new checkpoint |
+
+### Type-Specific Message Content
+
+**checkpoint:human-verify:**
+```
+CHECKPOINT: human-verify
+PLAN: 03-02
+PROGRESS: 4/6
+
+### Checkpoint Details
+**What was built:** Responsive dashboard at http://localhost:3000/dashboard
+**How to verify:**
+1. Visit http://localhost:3000/dashboard
+2. Desktop (>1024px): Sidebar visible, content fills remaining space
+3. Tablet (768px): Sidebar collapses to icons
+4. Mobile (375px): Sidebar hidden, hamburger menu appears
+
+### Awaiting
+Type "approved" or describe layout issues
+```
+
+**checkpoint:decision:**
+```
+CHECKPOINT: decision
+PLAN: 03-01
+PROGRESS: 2/6
+
+### Checkpoint Details
+**Decision:** Select authentication provider
+**Context:** Need user auth. Three options with different tradeoffs.
+
+**Options:**
+1. **supabase** - Built-in with our DB, generous free tier
+   Pros: Row-level security integration
+   Cons: Less customizable UI, ecosystem lock-in
+
+2. **clerk** - Beautiful pre-built UI, best DX
+   Pros: Excellent docs, pre-built components
+   Cons: Paid after 10k MAU, vendor lock-in
+
+3. **nextauth** - Self-hosted, maximum control
+   Pros: Free, no vendor lock-in
+   Cons: More setup work, DIY security
+
+### Awaiting
+Select: supabase, clerk, or nextauth
+```
+
+**checkpoint:human-action:**
+```
+CHECKPOINT: human-action
+PLAN: 03-03
+PROGRESS: 3/8
+
+### Checkpoint Details
+**Action:** Complete email verification for SendGrid
+**What I automated:** Created account via API, requested verification email
+**What you need to do:** Check inbox for SendGrid verification link, click it
+**I'll verify:** SendGrid API key works after you confirm
+
+### Awaiting
+Type "done" when email verified
+```
+
+### Auth Gates in Team Mode
+
+Auth gates are dramatically simplified in team mode:
+
+```
+OLD (standalone):
+1. Executor hits auth error
+2. Returns CHECKPOINT REACHED with structured state
+3. Dies
+4. Orchestrator presents to user
+5. User authenticates
+6. Orchestrator spawns continuation agent
+7. Continuation re-reads everything
+8. Continuation retries original command
+
+NEW (team mode):
+1. Executor hits auth error
+2. Sends message: "CHECKPOINT: human-action ... need vercel login"
+3. Goes idle (keeps full context)
+4. Orchestrator relays to user
+5. User authenticates
+6. Orchestrator sends: "CHECKPOINT_RESPONSE: done"
+7. Executor wakes up, runs verification, retries original command
+8. Continues with full context
+```
+
+Steps reduced from 8 to 8, but steps 2-8 are TRIVIAL (no agent death, no
+re-reading, no commit verification). Wall-clock time: ~30 seconds vs ~3 minutes.
+
+### Deviation Rule 4 in Team Mode
+
+Architectural decisions that would previously cause agent death now use the
+same messaging pattern:
+
+```
+SendMessage(
+  type="message",
+  recipient="{team_lead}",
+  content="DEVIATION: rule-4
+PLAN: {plan_id}
+TASK: {current_task}
+
+### Discovery
+{what prompted this}
+
+### Proposed Change
+{modification}
+
+### Why Needed
+{rationale}
+
+### Impact
+{what this affects}
+
+### Alternatives
+{other approaches}
+
+Proceed with proposed change? (yes / different approach / defer)",
+  summary="Architectural decision needed for {plan_id}"
+)
+```
+
+Wait for: `DEVIATION_RESPONSE: {decision}`
+
+### Error Scenarios
+
+**Executor dies while idle at checkpoint:**
+- The executor process crashes or times out while waiting for user response
+- The checkpoint state is LOST (it was in-memory only)
+- Team lead detects unresponsive executor
+- Recovery: spawn replacement executor as standalone continuation agent using
+  the last known state (commits on disk, task progress from the checkpoint message
+  that was already received)
+- This is the WORST CASE for team mode and equals the NORMAL CASE for standalone mode
+
+**Team lead dies while executors are idle:**
+- Executors will eventually time out waiting for response
+- On next `/gsd:execute-phase` run, team is gone, executors are gone
+- Discovery finds completed SUMMARYs, skips them, restarts incomplete plans
+- At most 1 task of work lost per incomplete plan (same as standalone)
+
+**User takes hours to respond:**
+- Executor remains idle (Claude Code keeps agent alive)
+- If Claude Code session times out, executor dies -> same recovery as "executor dies" above
+- Recommendation: if user needs significant time, save checkpoint context to disk:
+  orchestrator writes `.planning/phases/XX-name/.pending-checkpoint.json` with
+  checkpoint details, so that on resume a new executor can continue from checkpoint
+
+**Key rule: NEVER return/die in team mode.** Always send message and wait. The only
+way an executor exits in team mode is via shutdown_request from the team lead after
+the plan is complete (or on unrecoverable failure via PLAN FAILED message).
+
+</team_mode_checkpoints>
+
 <authentication_gates>
 
 **Auth gate = Claude tried CLI/API, got auth error.** Not a failure — a gate requiring human input to unblock.
@@ -374,6 +579,10 @@ I'll verify: vercel whoami returns your account
 **Key distinction:**
 - Pre-planned checkpoint: "I need you to do X" (wrong - Claude should automate)
 - Auth gate: "I tried to automate X but need credentials" (correct - unblocks automation)
+
+**Team mode:** Same 7-step protocol, but steps 3-6 use SendMessage instead of
+checkpoint_return_format + die + continuation spawn. Executor stays alive.
+See team_mode_checkpoints section for message format.
 
 </authentication_gates>
 

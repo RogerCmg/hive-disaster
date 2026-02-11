@@ -64,21 +64,36 @@ PLAN_START_EPOCH=$(date +%s)
 grep -n "type=\"checkpoint" .planning/phases/XX-name/{phase}-{plan}-PLAN.md
 ```
 
-**Routing by checkpoint type:**
+**Detect team mode:** Check if this workflow is running in a team context (team lead with executor teammates). If yes, use Team routing. If no, use Classic routing.
+
+### Classic Routing (Standalone / Task subagents)
 
 | Checkpoints | Pattern | Execution |
 |-------------|---------|-----------|
 | None | A (autonomous) | Single subagent: full plan + SUMMARY + commit |
-| Verify-only | B (segmented) | Segments between checkpoints. After none/human-verify → SUBAGENT. After decision/human-action → MAIN |
+| Verify-only | B (segmented) | Segments between checkpoints. After none/human-verify -> SUBAGENT. After decision/human-action -> MAIN |
 | Decision | C (main) | Execute entirely in main context |
 
-**Pattern A:** init_agent_tracking → spawn Task(subagent_type="gsd-executor", model=executor_model) with prompt: execute plan at [path], autonomous, all tasks + SUMMARY + commit, follow deviation/auth rules, report: plan name, tasks, SUMMARY path, commit hash → track agent_id → wait → update tracking → report.
+**Pattern A:** init_agent_tracking -> spawn Task(subagent_type="gsd-executor", model=executor_model) with prompt: execute plan at [path], autonomous, all tasks + SUMMARY + commit, follow deviation/auth rules, report: plan name, tasks, SUMMARY path, commit hash -> track agent_id -> wait -> update tracking -> report.
 
 **Pattern B:** Execute segment-by-segment. Autonomous segments: spawn subagent for assigned tasks only (no SUMMARY/commit). Checkpoints: main context. After all segments: aggregate, create SUMMARY, commit. See segment_execution.
 
 **Pattern C:** Execute in main using standard flow (step name="execute").
 
 Fresh context per subagent preserves peak quality. Main context stays lean.
+
+### Team Routing (Agent Teams)
+
+| Checkpoints | Pattern | Execution |
+|-------------|---------|-----------|
+| None | A-team | Executor teammate: full plan + SUMMARY + commit. Messages progress. |
+| Any checkpoints | B-team | **Same executor teammate** handles entire plan. At checkpoints: sends message to team lead, waits for response, continues. No segmentation needed. |
+
+**Pattern A-team:** Send plan to executor teammate. Executor runs full plan autonomously, sending progress updates per task. On completion, sends PLAN COMPLETE message.
+
+**Pattern B-team:** Send plan to executor teammate. Executor runs until checkpoint, sends checkpoint message to team lead, waits. Team lead relays to user, gets response, sends back to executor. Executor continues with full context. **No segmentation, no continuation agents, no context loss.**
+
+**Key difference:** Patterns B and C from classic mode collapse into B-team. The executor handles all checkpoint types itself via messaging. No need for "MAIN" context to handle decisions.
 </step>
 
 <step name="init_agent_tracking">
@@ -101,6 +116,8 @@ Run for Pattern A/B before spawning. Pattern C: skip.
 </step>
 
 <step name="segment_execution">
+**Classic mode only (standalone / Task subagents).** In team mode, skip this step entirely — the executor handles all segments as a single continuous run with checkpoint messaging.
+
 Pattern B only (verify-only checkpoints). Skip for A/C.
 
 1. Parse segment map: checkpoint locations and types
@@ -138,8 +155,10 @@ Deviations are normal — handle via rules below.
 
 1. Read @context files from prompt
 2. Per task:
-   - `type="auto"`: if `tdd="true"` → TDD execution. Implement with deviation rules + auth gates. Verify done criteria. Commit (see task_commit). Track hash for Summary.
-   - `type="checkpoint:*"`: STOP → checkpoint_protocol → wait for user → continue only after confirmation.
+   - `type="auto"`: if `tdd="true"` -> TDD execution. Implement with deviation rules + auth gates. Verify done criteria. Commit (see task_commit). Track hash for Summary. **Team mode:** send progress update after commit.
+   - `type="checkpoint:*"`:
+     - **Team mode:** Send checkpoint message to team lead (see checkpoint_protocol in gsd-executor.md). WAIT for response. Process response. Continue to next task.
+     - **Classic mode:** STOP -> checkpoint_protocol -> wait for user -> continue only after confirmation.
 3. Run `<verification>` checks
 4. Confirm `<success_criteria>` met
 5. Document deviations in Summary
@@ -156,13 +175,15 @@ Auth errors during execution are NOT failures — they're expected interaction p
 **Protocol:**
 1. Recognize auth gate (not a bug)
 2. STOP task execution
-3. Create dynamic checkpoint:human-action with exact auth steps
-4. Wait for user to authenticate
+3. **Team mode:** Send `human-action` checkpoint message to team lead with exact auth steps and verification command. Wait for "done" response.
+4. **Classic mode:** Create dynamic checkpoint:human-action with exact auth steps. Wait for user to authenticate.
 5. Verify credentials work
 6. Retry original task
 7. Continue normally
 
-**Example:** `vercel --yes` → "Not authenticated" → checkpoint asking user to `vercel login` → verify with `vercel whoami` → retry deploy → continue
+**Example (team mode):** `vercel --yes` -> "Not authenticated" -> SendMessage to team lead: "need `vercel login`" -> team lead relays to user -> user authenticates -> "done" -> verify with `vercel whoami` -> retry deploy -> continue
+
+**Example (classic mode):** `vercel --yes` -> "Not authenticated" -> checkpoint asking user to `vercel login` -> verify with `vercel whoami` -> retry deploy -> continue
 
 **In Summary:** Document as normal flow under "## Authentication Gates", not as deviations.
 
@@ -182,6 +203,25 @@ You WILL discover unplanned work. Apply automatically, track all for Summary.
 | **4: Architectural** | Structural change: new DB table, schema change, new service, switching libs, breaking API, new infra | STOP → present decision (below) → track `[Rule 4 - Architectural]` | Ask user |
 
 **Rule 4 format:**
+
+**Team mode:**
+```
+SendMessage(type="message", recipient="team-lead",
+  summary="Decision needed: {short description}",
+  content="DEVIATION RULE 4: Architectural Decision Needed
+
+Current task: [task name]
+Discovery: [what prompted this]
+Proposed change: [modification]
+Why needed: [rationale]
+Impact: [what this affects]
+Alternatives: [other approaches]
+
+Options: proceed with proposed change / different approach / defer")
+```
+Wait for response. Implement based on decision. Continue execution.
+
+**Classic mode:**
 ```
 ⚠️ Architectural Decision Needed
 
@@ -267,7 +307,9 @@ TASK_COMMITS+=("Task ${TASK_NUM}: ${TASK_COMMIT}")
 <step name="checkpoint_protocol">
 On `type="checkpoint:*"`: automate everything possible first. Checkpoints are for verification/decisions only.
 
-Display: `CHECKPOINT: [Type]` box → Progress {X}/{Y} → Task name → type-specific content → `YOUR ACTION: [signal]`
+### Classic Mode (Standalone)
+
+Display: `CHECKPOINT: [Type]` box -> Progress {X}/{Y} -> Task name -> type-specific content -> `YOUR ACTION: [signal]`
 
 | Type | Content | Resume signal |
 |------|---------|---------------|
@@ -275,21 +317,57 @@ Display: `CHECKPOINT: [Type]` box → Progress {X}/{Y} → Task name → type-sp
 | decision (9%) | Decision needed + context + options with pros/cons | "Select: option-id" |
 | human-action (1%) | What was automated + ONE manual step + verification plan | "done" |
 
-After response: verify if specified. Pass → continue. Fail → inform, wait. WAIT for user — do NOT hallucinate completion.
+After response: verify if specified. Pass -> continue. Fail -> inform, wait. WAIT for user -- do NOT hallucinate completion.
+
+### Team Mode (Agent Teams)
+
+Send checkpoint message to team lead using the formats defined in gsd-executor.md `<checkpoint_protocol>`. The team lead will relay to the user and return the response.
+
+| Type | Message summary prefix | Expected response |
+|------|----------------------|-------------------|
+| human-verify | "Checkpoint: verify {what}" | "approved" or issue description |
+| decision | "Checkpoint: decision needed for {topic}" | Option selection |
+| human-action | "Checkpoint: manual action needed - {action}" | "done" |
+
+After receiving response: same handling as classic mode. Verify if specified. Pass -> continue. Fail -> inform team lead and wait.
+
+**CRITICAL:** In team mode, NEVER format the checkpoint_return_for_orchestrator structured return. NEVER return/exit. Send message and WAIT.
 
 See ~/.claude/get-shit-done/references/checkpoints.md for details.
 </step>
 
 <step name="checkpoint_return_for_orchestrator">
+**Classic mode only.** In team mode, skip this step entirely — use checkpoint messaging from checkpoint_protocol instead.
+
 When spawned via Task and hitting checkpoint: return structured state (cannot interact with user directly).
 
 **Required return:** 1) Completed Tasks table (hashes + files) 2) Current Task (what's blocking) 3) Checkpoint Details (user-facing content) 4) Awaiting (what's needed from user)
 
-Orchestrator parses → presents to user → spawns fresh continuation with your completed tasks state. You will NOT be resumed. In main context: use checkpoint_protocol above.
+Orchestrator parses -> presents to user -> spawns fresh continuation with your completed tasks state. You will NOT be resumed. In main context: use checkpoint_protocol above.
 </step>
 
 <step name="verification_failure_gate">
-If verification fails: STOP. Present: "Verification failed for Task [X]: [name]. Expected: [criteria]. Actual: [result]." Options: Retry | Skip (mark incomplete) | Stop (investigate). If skipped → SUMMARY "Issues Encountered".
+If verification fails:
+
+**Team mode:** Send message to team lead:
+```
+SendMessage(type="message", recipient="team-lead",
+  summary="Verification failed: Task {X} - {name}",
+  content="VERIFICATION FAILED
+Task {X}: {name}
+Expected: {criteria}
+Actual: {result}
+
+Options:
+1. retry - I'll retry the verification
+2. skip - Mark incomplete, continue (will appear in SUMMARY Issues)
+3. stop - Stop execution, investigate")
+```
+Wait for response. Act accordingly.
+
+**Classic mode:** STOP. Present: "Verification failed for Task [X]: [name]. Expected: [criteria]. Actual: [result]." Options: Retry | Skip (mark incomplete) | Stop (investigate).
+
+If skipped -> SUMMARY "Issues Encountered".
 </step>
 
 <step name="record_completion_time">
