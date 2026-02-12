@@ -41,7 +41,9 @@
   3. Running `hive-tools.js git detect-build-cmd` in a Node project returns `npm test`, in a Rust project returns `cargo test`, and in a project with no build file returns a clear "none detected" result
   4. Setting `git.flow: "none"` in config.json causes all git workflow features to be skipped — existing behavior preserved exactly
   5. Running `hive-tools.js git create-dev-branch`, `create-plan-branch`, `run-build-gate`, `create-pr`, and the other git subcommands all return structured JSON results with success/error status
-**Plans**: TBD
+**Plans**: 2 plans
+  - [ ] 08-01-PLAN.md — Safety primitives, config schema, auto-detection, execCommand
+  - [ ] 08-02-PLAN.md — Git subcommands (10 handlers), CLI router, tests
 
 ### Phase 9: Branch Lifecycle & Build Gates
 **Goal**: Plans execute on isolated branches that are validated before PR creation and cleaned up after merge
@@ -92,7 +94,7 @@
 | 5. Installation Integration | v1.0 | 1/1 | Complete | 2026-02-12 |
 | 6. Transcript Analysis | v1.0 | 2/2 | Complete | 2026-02-12 |
 | 7. Close Integration Gaps | v1.0 | 1/1 | Complete | 2026-02-12 |
-| 8. Safety & Configuration | v2.0 | 0/TBD | Not started | - |
+| 8. Safety & Configuration | v2.0 | 0/2 | Not started | - |
 | 9. Branch Lifecycle & Build Gates | v2.0 | 0/TBD | Not started | - |
 | 10. PR & Workflow Integration | v2.0 | 0/TBD | Not started | - |
 | 11. Repo Manager | v2.0 | 0/TBD | Not started | - |
