@@ -41,5 +41,11 @@
   "safety": {
     "always_confirm_destructive": true,
     "always_confirm_external_services": true
+  },
+  "telemetry": {
+    "enabled": true,
+    "hooks": true,
+    "workflow_events": true,
+    "transcript_analysis": false
   }
 }

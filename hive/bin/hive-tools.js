@@ -136,6 +136,14 @@ const MODEL_PROFILES = {
   'hive-integration-checker':  { quality: 'sonnet', balanced: 'sonnet', budget: 'haiku' },
 };
 
+// ─── Telemetry Event Types ───────────────────────────────────────────────────
+
+const VALID_EVENT_TYPES = [
+  'agent_completion', 'tool_error', 'deviation', 'checkpoint',
+  'verification_gap', 'plan_revision', 'user_correction',
+  'fallback', 'context_compaction', 'session_summary'
+];
+
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function parseIncludeFlag(args) {
@@ -462,6 +470,92 @@ function parseMustHavesBlock(content, blockName) {
 
   return items;
 }
+
+// ─── Telemetry Helpers ───────────────────────────────────────────────────────
+
+function getTelemetryConfig(cwd) {
+  try {
+    const configPath = path.join(cwd, '.planning', 'config.json');
+    const raw = fs.readFileSync(configPath, 'utf-8');
+    const parsed = JSON.parse(raw);
+    const tel = parsed.telemetry || {};
+    return {
+      enabled: tel.enabled !== false,
+      hooks: tel.hooks !== false,
+      workflow_events: tel.workflow_events !== false,
+      transcript_analysis: tel.transcript_analysis === true,
+      rotation_threshold_kb: tel.rotation_threshold_kb || 500,
+      max_archives: tel.max_archives || 10,
+    };
+  } catch {
+    return {
+      enabled: true,
+      hooks: true,
+      workflow_events: true,
+      transcript_analysis: false,
+      rotation_threshold_kb: 500,
+      max_archives: 10,
+    };
+  }
+}
+
+function ensureTelemetryDir(cwd) {
+  const dir = path.join(cwd, '.planning', 'telemetry');
+  fs.mkdirSync(dir, { recursive: true });
+  return dir;
+}
+
+function createEventEnvelope(type, data, session) {
+  return {
+    ts: new Date().toISOString(),
+    session: session || process.env.CLAUDE_SESSION_ID || 'unknown',
+    type,
+    v: 1,
+    data: data || {},
+  };
+}
+
+function parseSinceDuration(sinceStr) {
+  if (!sinceStr) return null;
+  const match = sinceStr.match(/^(\d+)([dhm])$/);
+  if (match) {
+    const multipliers = { d: 86400000, h: 3600000, m: 60000 };
+    const ms = parseInt(match[1], 10) * multipliers[match[2]];
+    return new Date(Date.now() - ms);
+  }
+  // Try ISO date string
+  const date = new Date(sinceStr);
+  if (!isNaN(date.getTime())) return date;
+  return null;
+}
+
+function rotateIfNeeded(telemetryDir, config) {
+  try {
+    const eventsFile = path.join(telemetryDir, 'events.jsonl');
+    const stats = fs.statSync(eventsFile);
+    const thresholdBytes = (config.rotation_threshold_kb || 500) * 1024;
+    if (stats.size < thresholdBytes) return false;
+
+    const ts = new Date().toISOString().replace(/:/g, '-').replace(/\.\d+Z$/, 'Z');
+    const archiveName = 'events-' + ts + '.jsonl';
+    fs.renameSync(eventsFile, path.join(telemetryDir, archiveName));
+
+    // Prune old archives
+    const maxArchives = config.max_archives || 10;
+    const archives = fs.readdirSync(telemetryDir)
+      .filter(f => f.startsWith('events-') && f.endsWith('.jsonl'))
+      .sort();
+    while (archives.length > maxArchives) {
+      const oldest = archives.shift();
+      fs.unlinkSync(path.join(telemetryDir, oldest));
+    }
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+// ─── Output / Error ──────────────────────────────────────────────────────────
 
 function output(result, raw, rawValue) {
   if (raw && rawValue !== undefined) {
