@@ -17,7 +17,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 3: Workflow Integration** - Semantic event capture at workflow decision points
 - [x] **Phase 4: Feedback Loop** - Digest generation, insight injection into agent context, /hive:insights command
 - [x] **Phase 5: Installation Integration** - Hook registration and config setup during npx hive-cc install
-- [ ] **Phase 6: Transcript Analysis** - Deep post-hoc session analysis agent and cross-session pattern detection
+- [x] **Phase 6: Transcript Analysis** - Deep post-hoc session analysis agent and cross-session pattern detection
 
 ## Phase Details
 
@@ -109,8 +109,8 @@ Plans:
 **Plans:** 2 plans
 
 Plans:
-- [ ] 06-01-PLAN.md -- Transcript CLI extraction, recall analyst agent, analyze-session command/workflow (TRANS-01, TRANS-02)
-- [ ] 06-02-PLAN.md -- Cross-session pattern detection and trend analysis (TRANS-03)
+- [x] 06-01-PLAN.md -- Transcript CLI extraction, recall analyst agent, analyze-session command/workflow (TRANS-01, TRANS-02)
+- [x] 06-02-PLAN.md -- Cross-session pattern detection and trend analysis (TRANS-03)
 
 ## Progress
 
@@ -124,7 +124,7 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6
 | 3. Workflow Integration | 2/2 | Complete ✓ | 2026-02-12 |
 | 4. Feedback Loop | 3/3 | Complete ✓ | 2026-02-12 |
 | 5. Installation Integration | 1/1 | Complete ✓ | 2026-02-12 |
-| 6. Transcript Analysis | 0/2 | Not started | - |
+| 6. Transcript Analysis | 2/2 | Complete ✓ | 2026-02-12 |
 
 ---
 *Roadmap created: 2026-02-11*
