@@ -55,7 +55,9 @@
   3. After a plan completes, the build command runs automatically — if it fails, PR creation is blocked and the user is informed
   4. Build gates are on by default and each gate (pre-PR, pre-merge, pre-main) can be individually disabled in config
   5. A build that hangs beyond the configured timeout (default 300s) is killed and reported as a failure
-**Plans**: TBD
+**Plans**: 2 plans
+  - [ ] 09-01-PLAN.md — Branch lifecycle: dev branch on init, plan branches on execution, cleanup after merge
+  - [ ] 09-02-PLAN.md — Build gates: pre-PR build validation, per-gate config, timeout handling
 
 ### Phase 10: PR & Workflow Integration
 **Goal**: Completed plans flow through PRs to dev branch with full workflow integration across execute-phase, execute-plan, and complete-milestone
@@ -95,10 +97,10 @@
 | 6. Transcript Analysis | v1.0 | 2/2 | Complete | 2026-02-12 |
 | 7. Close Integration Gaps | v1.0 | 1/1 | Complete | 2026-02-12 |
 | 8. Safety & Configuration | v2.0 | 2/2 | Complete | 2026-02-12 |
-| 9. Branch Lifecycle & Build Gates | v2.0 | 0/TBD | Not started | - |
+| 9. Branch Lifecycle & Build Gates | v2.0 | 0/2 | Not started | - |
 | 10. PR & Workflow Integration | v2.0 | 0/TBD | Not started | - |
 | 11. Repo Manager | v2.0 | 0/TBD | Not started | - |
 
 ---
 *Roadmap created: 2026-02-11*
-*Last updated: 2026-02-12 after Phase 8 completion*
+*Last updated: 2026-02-12 after Phase 9 planning*
