@@ -22,3 +22,6 @@ RAILROAD_ARCHITECTURE.md
 # Telemetry event data (raw events stay local, INSIGHTS.md is committed)
 .planning/telemetry/events.jsonl
 .planning/telemetry/events-*.jsonl
+
+# Hive worker state (runtime, not committed)
+.hive-workers/
