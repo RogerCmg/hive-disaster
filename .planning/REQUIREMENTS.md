@@ -100,40 +100,40 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| SAFE-01 | — | Pending |
-| SAFE-02 | — | Pending |
-| SETUP-01 | — | Pending |
-| SETUP-02 | — | Pending |
-| SETUP-03 | — | Pending |
-| SETUP-04 | — | Pending |
-| BRANCH-01 | — | Pending |
-| BRANCH-02 | — | Pending |
-| BRANCH-03 | — | Pending |
-| BUILD-01 | — | Pending |
-| BUILD-02 | — | Pending |
-| BUILD-03 | — | Pending |
-| BUILD-04 | — | Pending |
-| BUILD-05 | — | Pending |
-| PR-01 | — | Pending |
-| PR-02 | — | Pending |
-| PR-03 | — | Pending |
-| PR-04 | — | Pending |
-| REPO-01 | — | Pending |
-| REPO-02 | — | Pending |
-| REPO-03 | — | Pending |
-| REPO-04 | — | Pending |
-| REPO-05 | — | Pending |
-| INTG-01 | — | Pending |
-| INTG-02 | — | Pending |
-| INTG-03 | — | Pending |
-| INTG-04 | — | Pending |
-| INTG-05 | — | Pending |
+| SAFE-01 | Phase 8 | Pending |
+| SAFE-02 | Phase 8 | Pending |
+| SETUP-01 | Phase 8 | Pending |
+| SETUP-02 | Phase 8 | Pending |
+| SETUP-03 | Phase 8 | Pending |
+| SETUP-04 | Phase 8 | Pending |
+| BRANCH-01 | Phase 9 | Pending |
+| BRANCH-02 | Phase 9 | Pending |
+| BRANCH-03 | Phase 9 | Pending |
+| BUILD-01 | Phase 9 | Pending |
+| BUILD-02 | Phase 11 | Pending |
+| BUILD-03 | Phase 11 | Pending |
+| BUILD-04 | Phase 9 | Pending |
+| BUILD-05 | Phase 9 | Pending |
+| PR-01 | Phase 10 | Pending |
+| PR-02 | Phase 10 | Pending |
+| PR-03 | Phase 10 | Pending |
+| PR-04 | Phase 10 | Pending |
+| REPO-01 | Phase 11 | Pending |
+| REPO-02 | Phase 11 | Pending |
+| REPO-03 | Phase 11 | Pending |
+| REPO-04 | Phase 11 | Pending |
+| REPO-05 | Phase 11 | Pending |
+| INTG-01 | Phase 10 | Pending |
+| INTG-02 | Phase 10 | Pending |
+| INTG-03 | Phase 10 | Pending |
+| INTG-04 | Phase 8 | Pending |
+| INTG-05 | Phase 10 | Pending |
 
 **Coverage:**
 - v2.0 requirements: 28 total
-- Mapped to phases: 0
-- Unmapped: 28
+- Mapped to phases: 28
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-02-12*
-*Last updated: 2026-02-12 after initial definition*
+*Last updated: 2026-02-12 after roadmap creation (traceability complete)*
