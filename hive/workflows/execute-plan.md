@@ -49,6 +49,13 @@ Auto-approve: `⚡ Execute {phase}-{plan}-PLAN.md [Plan X of Y for Phase Z]` →
 
 <if mode="interactive" OR="custom with gates.execute_next_plan true">
 Present plan identification, wait for confirmation.
+
+If user modifies the plan selection or provides different instructions, emit a user_correction event:
+
+```bash
+node ~/.claude/hive/bin/hive-tools.js telemetry emit user_correction \
+  --data "{\"phase\":\"${PHASE_NUMBER}\",\"plan\":\"${PLAN_ID}\",\"what_changed\":\"plan-selection\",\"user_intent\":\"${USER_RESPONSE}\"}"
+```
 </if>
 </step>
 
@@ -202,6 +209,13 @@ You WILL discover unplanned work. Apply automatically, track all for Summary.
 | **3: Blocking** | Prevents completion: missing deps, wrong types, broken imports, missing env/config/files, circular deps | Fix blocker → verify proceeds → track `[Rule 3 - Blocking]` | Auto |
 | **4: Architectural** | Structural change: new DB table, schema change, new service, switching libs, breaking API, new infra | STOP → present decision (below) → track `[Rule 4 - Architectural]` | Ask user |
 
+**After applying any auto-fix (Rules 1-3), emit a deviation event for Recall:**
+
+```bash
+node ~/.claude/hive/bin/hive-tools.js telemetry emit deviation \
+  --data "{\"phase\":\"${PHASE_NUMBER}\",\"plan\":\"${PLAN_ID}\",\"deviation_type\":\"rule-${RULE_NUM}\",\"severity\":\"auto\",\"description\":\"${DEVIATION_TITLE}\",\"resolution\":\"${RESOLUTION}\"}"
+```
+
 **Rule 4 format:**
 
 **Team mode:**
@@ -233,6 +247,13 @@ Impact: [what this affects]
 Alternatives: [other approaches]
 
 Proceed with proposed change? (yes / different approach / defer)
+```
+
+**After Rule 4 resolution (user responded), emit the deviation event:**
+
+```bash
+node ~/.claude/hive/bin/hive-tools.js telemetry emit deviation \
+  --data "{\"phase\":\"${PHASE_NUMBER}\",\"plan\":\"${PLAN_ID}\",\"deviation_type\":\"rule-4\",\"severity\":\"architectural\",\"description\":\"${DEVIATION_TITLE}\",\"resolution\":\"${USER_DECISION}\"}"
 ```
 
 **Priority:** Rule 4 (STOP) > Rules 1-3 (auto) > unsure → Rule 4
@@ -368,6 +389,13 @@ Wait for response. Act accordingly.
 **Classic mode:** STOP. Present: "Verification failed for Task [X]: [name]. Expected: [criteria]. Actual: [result]." Options: Retry | Skip (mark incomplete) | Stop (investigate).
 
 If skipped -> SUMMARY "Issues Encountered".
+
+If user chose "skip", emit a user_correction event:
+
+```bash
+node ~/.claude/hive/bin/hive-tools.js telemetry emit user_correction \
+  --data "{\"phase\":\"${PHASE_NUMBER}\",\"plan\":\"${PLAN_ID}\",\"what_changed\":\"verification-skip\",\"user_intent\":\"${USER_RESPONSE}\"}"
+```
 </step>
 
 <step name="record_completion_time">

@@ -4589,6 +4589,14 @@ function cmdTelemetryEmit(cwd, type, dataStr, raw) {
     return;
   }
 
+  const WORKFLOW_EVENT_TYPES = [
+    'deviation', 'checkpoint', 'verification_gap', 'plan_revision', 'user_correction'
+  ];
+  if (WORKFLOW_EVENT_TYPES.includes(type) && !telConfig.workflow_events) {
+    output({ emitted: false, reason: 'workflow_events disabled' }, raw, 'disabled');
+    return;
+  }
+
   let data = {};
   if (dataStr) {
     try {
