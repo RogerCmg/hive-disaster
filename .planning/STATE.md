@@ -15,7 +15,7 @@ See: .planning/PROJECT.md (updated 2026-02-11)
 **Status:** Phase complete — ready for verification
 **Last Activity:** 2026-02-12
 
-**Progress:** [█████████░] 86%
+**Progress:** [██████████] 100%
 
 ## Performance Metrics
 
@@ -40,6 +40,7 @@ See: .planning/PROJECT.md (updated 2026-02-11)
 
 *Updated after each plan completion*
 | Phase 03 P02 | 2min | 2 tasks | 4 files |
+| Phase 03 P01 | 3min | 2 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -65,6 +66,8 @@ Recent decisions affecting current work:
 - [Phase 02]: End-session event counting reads full events.jsonl filtered by session_id (<5ms for 500KB max)
 - [Phase 02]: All hooks use project-level .planning/ directory check for HOOK-07 filtering
 - [Phase 03]: Emit only on failure states, not every check, to reduce noise and focus Recall on actionable gaps
+- [Phase 03]: Workflow event types gated as a group via WORKFLOW_EVENT_TYPES array, not per-type config
+- [Phase 03]: Deviation emits in execute-plan.md (executor), checkpoint emits in execute-phase.md (orchestrator)
 
 ### Pending Todos
 
@@ -76,6 +79,6 @@ None yet.
 
 ## Session Continuity
 
-**Last session:** 2026-02-12T02:27:48.653Z
-**Stopped at:** Completed 03-02-PLAN.md
+**Last session:** 2026-02-12T02:28:29.583Z
+**Stopped at:** Completed 03-01-PLAN.md
 **Resume file:** None
