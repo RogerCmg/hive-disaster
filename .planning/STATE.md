@@ -10,9 +10,9 @@ See: .planning/PROJECT.md (updated 2026-02-12)
 ## Current Position
 
 Phase: 11 of 11 (Repo Manager)
-Plan: 2 of 3 in current phase
+Plan: 3 of 3 in current phase
 Status: Executing
-Last activity: 2026-02-12 — Plan 11-02 complete (repo manager agent & workflow)
+Last activity: 2026-02-12 — Plans 11-02 and 11-03 complete (Wave 2)
 
 Progress: [██████████] 93%
 
@@ -40,6 +40,7 @@ Progress: [██████████] 93%
 - 10-03: 2min, 2 tasks, 2 files
 - 11-01: 4min, 2 tasks, 2 files
 - 11-02: 2min, 2 tasks, 4 files
+- 11-03: 2min, 2 tasks, 2 files
 - Trend: Stable (sub-5min per plan)
 
 *Updated after each plan completion*
@@ -78,6 +79,8 @@ Recent decisions affecting current work:
 - [Phase 11]: Repo manager agent uses 7 rules enforcing wave ordering, dev-branch verification, crash recovery
 - [Phase 11]: Workflow dual-location pattern: source (hive/) with ~/ paths, installed (.claude/) with ./ paths
 - [Phase 11]: Agents live only in .claude/agents/ (no hive/agents/ source directory)
+- [Phase 11]: repo_manager defaults to false (opt-in), queue failure falls back to self-merge
+- [Phase 11]: Queued plans skip self-merge and dev checkout, repo manager handles lifecycle
 
 ### Pending Todos
 
@@ -90,5 +93,5 @@ None.
 ## Session Continuity
 
 **Last session:** 2026-02-12
-**Stopped at:** Completed 11-02-PLAN.md (repo manager agent & workflow)
-**Resume file:** Plan 11-02 complete. Next: 11-03 (execute-phase integration)
+**Stopped at:** Phase 11 execution complete (3/3 plans)
+**Resume file:** All plans complete. Next: verification

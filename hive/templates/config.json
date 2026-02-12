@@ -52,7 +52,8 @@
     },
     "build_command": null,
     "build_timeout": 300,
-    "merge_strategy": "merge"
+    "merge_strategy": "merge",
+    "repo_manager": false
   },
   "telemetry": {
     "enabled": true,
