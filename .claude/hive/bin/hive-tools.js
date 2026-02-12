@@ -126,7 +126,8 @@
 
 const fs = require('fs');
 const path = require('path');
-const { execSync } = require('child_process');
+const { execSync, spawnSync } = require('child_process');
+const os = require('os');
 
 // ─── Model Profile Table ─────────────────────────────────────────────────────
 
@@ -185,6 +186,14 @@ function loadConfig(cwd) {
     verifier: true,
     parallelization: true,
     brave_search: false,
+    git_flow: 'github',
+    git_dev_branch: 'dev',
+    git_build_gates_pre_pr: true,
+    git_build_gates_pre_merge: true,
+    git_build_gates_pre_main: true,
+    git_build_command: null,
+    git_build_timeout: 300,
+    git_merge_strategy: 'merge',
   };
 
   try {
@@ -206,6 +215,9 @@ function loadConfig(cwd) {
       return defaults.parallelization;
     })();
 
+    const gitSection = parsed.git || {};
+    const buildGates = gitSection.build_gates || {};
+
     return {
       model_profile: get('model_profile') ?? defaults.model_profile,
       commit_docs: get('commit_docs', { section: 'planning', field: 'commit_docs' }) ?? defaults.commit_docs,
@@ -218,6 +230,14 @@ function loadConfig(cwd) {
       verifier: get('verifier', { section: 'workflow', field: 'verifier' }) ?? defaults.verifier,
       parallelization,
       brave_search: get('brave_search') ?? defaults.brave_search,
+      git_flow: gitSection.flow ?? defaults.git_flow,
+      git_dev_branch: gitSection.dev_branch ?? defaults.git_dev_branch,
+      git_build_gates_pre_pr: buildGates.pre_pr ?? defaults.git_build_gates_pre_pr,
+      git_build_gates_pre_merge: buildGates.pre_merge ?? defaults.git_build_gates_pre_merge,
+      git_build_gates_pre_main: buildGates.pre_main ?? defaults.git_build_gates_pre_main,
+      git_build_command: gitSection.build_command ?? defaults.git_build_command,
+      git_build_timeout: gitSection.build_timeout ?? defaults.git_build_timeout,
+      git_merge_strategy: gitSection.merge_strategy ?? defaults.git_merge_strategy,
     };
   } catch {
     return defaults;
@@ -255,6 +275,176 @@ function execGit(cwd, args) {
       stderr: (err.stderr ?? '').toString().trim(),
     };
   }
+}
+
+// ─── File Safety Primitives ────────────────────────────────────────────────────
+
+function acquireLock(filePath, options) {
+  const opts = Object.assign({ retries: 50, retryDelay: 100, staleMs: 10000 }, options);
+  const lockDir = filePath + '.lock';
+
+  for (let attempt = 0; attempt <= opts.retries; attempt++) {
+    try {
+      fs.mkdirSync(lockDir);
+      // Lock acquired — write info file
+      try {
+        fs.writeFileSync(path.join(lockDir, 'info.json'), JSON.stringify({ pid: process.pid, ts: Date.now() }));
+      } catch {
+        // info write failure is non-fatal — lock is still held
+      }
+      return lockDir;
+    } catch (err) {
+      if (err.code !== 'EEXIST') throw err;
+
+      // Lock already held — check staleness
+      try {
+        const infoPath = path.join(lockDir, 'info.json');
+        const info = JSON.parse(fs.readFileSync(infoPath, 'utf-8'));
+
+        // Check if lock is stale by timestamp
+        if (Date.now() - info.ts > opts.staleMs) {
+          fs.rmSync(lockDir, { recursive: true, force: true });
+          continue;
+        }
+
+        // Check if holding process is dead
+        try {
+          process.kill(info.pid, 0);
+        } catch {
+          // PID not running — stale lock
+          fs.rmSync(lockDir, { recursive: true, force: true });
+          continue;
+        }
+      } catch {
+        // Can't read info file — treat as stale if this is not the first attempt
+        if (attempt > 0) {
+          fs.rmSync(lockDir, { recursive: true, force: true });
+          continue;
+        }
+      }
+
+      // Wait before retry (polling loop)
+      if (attempt < opts.retries) {
+        const deadline = Date.now() + opts.retryDelay;
+        while (Date.now() < deadline) {
+          // busy wait
+        }
+      }
+    }
+  }
+
+  throw new Error(`Failed to acquire lock on ${filePath} after ${opts.retries} retries`);
+}
+
+function releaseLock(lockDir) {
+  try {
+    fs.rmSync(lockDir, { recursive: true, force: true });
+  } catch {
+    // best-effort, never throws
+  }
+}
+
+function atomicWriteFileSync(filePath, content, encoding) {
+  const tmpPath = path.join(path.dirname(filePath), '.tmp-' + path.basename(filePath) + '.' + process.pid + '.' + Date.now());
+  try {
+    fs.writeFileSync(tmpPath, content, encoding || 'utf-8');
+    fs.renameSync(tmpPath, filePath);
+  } catch (err) {
+    try {
+      fs.unlinkSync(tmpPath);
+    } catch {
+      // cleanup orphan — best-effort
+    }
+    throw err;
+  }
+}
+
+function withFileLock(filePath, fn) {
+  const lockDir = acquireLock(filePath);
+  try {
+    return fn();
+  } finally {
+    releaseLock(lockDir);
+  }
+}
+
+// ─── Git/CLI Detection ─────────────────────────────────────────────────────────
+
+function execCommand(command, args, options) {
+  const opts = options || {};
+  const result = spawnSync(command, args, {
+    cwd: opts.cwd || process.cwd(),
+    encoding: 'utf-8',
+    timeout: opts.timeout,
+    stdio: ['pipe', 'pipe', 'pipe'],
+  });
+  return {
+    success: result.status === 0,
+    exitCode: result.status,
+    stdout: (result.stdout || '').trim(),
+    stderr: (result.stderr || '').trim(),
+    signal: result.signal || null,
+    timedOut: (result.error && result.error.code === 'ETIMEDOUT') || false,
+  };
+}
+
+function detectBuildCommand(cwd) {
+  // 1. package.json
+  const pkgPath = path.join(cwd, 'package.json');
+  if (fs.existsSync(pkgPath)) {
+    const raw = safeReadFile(pkgPath);
+    if (raw) {
+      try {
+        const pkg = JSON.parse(raw);
+        if (pkg.scripts && pkg.scripts.test && pkg.scripts.test !== 'echo "Error: no test specified" && exit 1') {
+          return { detected: true, command: 'npm test', source: 'package.json' };
+        }
+      } catch {
+        // malformed JSON — skip
+      }
+    }
+  }
+
+  // 2. Cargo.toml
+  if (fs.existsSync(path.join(cwd, 'Cargo.toml'))) {
+    return { detected: true, command: 'cargo test', source: 'Cargo.toml' };
+  }
+
+  // 3. go.mod
+  if (fs.existsSync(path.join(cwd, 'go.mod'))) {
+    return { detected: true, command: 'go test ./...', source: 'go.mod' };
+  }
+
+  // 4. pyproject.toml
+  if (fs.existsSync(path.join(cwd, 'pyproject.toml'))) {
+    return { detected: true, command: 'pytest', source: 'pyproject.toml' };
+  }
+
+  // 5. setup.py
+  if (fs.existsSync(path.join(cwd, 'setup.py'))) {
+    return { detected: true, command: 'pytest', source: 'setup.py' };
+  }
+
+  // 6. Makefile with test target
+  const makefilePath = path.join(cwd, 'Makefile');
+  if (fs.existsSync(makefilePath)) {
+    const makeContent = safeReadFile(makefilePath);
+    if (makeContent && /^test\s*:/m.test(makeContent)) {
+      return { detected: true, command: 'make test', source: 'Makefile' };
+    }
+  }
+
+  // 7. build.gradle or build.gradle.kts
+  if (fs.existsSync(path.join(cwd, 'build.gradle')) || fs.existsSync(path.join(cwd, 'build.gradle.kts'))) {
+    return { detected: true, command: './gradlew test', source: 'build.gradle' };
+  }
+
+  // 8. pom.xml
+  if (fs.existsSync(path.join(cwd, 'pom.xml'))) {
+    return { detected: true, command: 'mvn test', source: 'pom.xml' };
+  }
+
+  return { detected: false, command: null, source: null };
 }
 
 function normalizePhaseName(phase) {
@@ -5014,6 +5204,60 @@ function cmdTelemetryEmit(cwd, type, dataStr, raw) {
   output({ emitted: true, type, ts: event.ts }, raw, 'ok');
 }
 
+// ─── Git Detection Commands ───────────────────────────────────────────────────
+
+function cmdGitDetect(cwd, raw) {
+  const gitResult = execCommand('git', ['--version'], { cwd });
+  let gitVersion = null;
+  let mergeTreeAvailable = false;
+  if (gitResult.success) {
+    const vMatch = gitResult.stdout.match(/(\d+\.\d+(?:\.\d+)?)/);
+    if (vMatch) {
+      gitVersion = vMatch[1];
+      const parts = gitVersion.split('.').map(Number);
+      const major = parts[0];
+      const minor = parts[1] || 0;
+      mergeTreeAvailable = major > 2 || (major === 2 && minor >= 38);
+    }
+  }
+
+  const ghResult = execCommand('gh', ['--version'], { cwd });
+  let ghVersion = null;
+  let ghAvailable = false;
+  if (ghResult.success) {
+    const ghMatch = ghResult.stdout.match(/(\d+\.\d+(?:\.\d+)?)/);
+    if (ghMatch) {
+      ghVersion = ghMatch[1];
+      ghAvailable = true;
+    }
+  }
+
+  const result = {
+    git: { version: gitVersion, merge_tree: mergeTreeAvailable },
+    gh: { available: ghAvailable, version: ghVersion },
+  };
+
+  output(result, raw, JSON.stringify(result));
+}
+
+function cmdGitDetectBuildCmd(cwd, raw) {
+  const config = loadConfig(cwd);
+
+  if (config.git_build_command) {
+    const result = { detected: true, command: config.git_build_command, source: 'config', override: true };
+    output(result, raw, result.command);
+    return;
+  }
+
+  const detected = detectBuildCommand(cwd);
+  if (detected.detected) {
+    output(detected, raw, detected.command);
+  } else {
+    const result = { detected: false, command: null, source: null, message: 'none detected' };
+    output(result, raw, '');
+  }
+}
+
 // ─── CLI Router ───────────────────────────────────────────────────────────────
 
 async function main() {
@@ -5427,6 +5671,18 @@ async function main() {
         }
       } else {
         error('Unknown telemetry subcommand: ' + (subcommand || '(none)') + '. Available: emit, query, digest, rotate, stats, transcript');
+      }
+      break;
+    }
+
+    case 'git': {
+      const subcommand = args[1];
+      if (subcommand === 'detect') {
+        cmdGitDetect(cwd, raw);
+      } else if (subcommand === 'detect-build-cmd') {
+        cmdGitDetectBuildCmd(cwd, raw);
+      } else {
+        error('Unknown git subcommand: ' + (subcommand || '(none)') + '. Available: detect, detect-build-cmd');
       }
       break;
     }
