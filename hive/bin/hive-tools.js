@@ -149,7 +149,8 @@ const MODEL_PROFILES = {
 const VALID_EVENT_TYPES = [
   'agent_completion', 'tool_error', 'deviation', 'checkpoint',
   'verification_gap', 'plan_revision', 'user_correction',
-  'fallback', 'context_compaction', 'session_summary'
+  'fallback', 'context_compaction', 'session_summary',
+  'session_boundary'
 ];
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
