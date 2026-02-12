@@ -29,6 +29,9 @@
  *   websearch <query>                  Search web via Brave API (if configured)
  *     [--limit N] [--freshness day|week|month]
  *
+ * Telemetry:
+ *   telemetry emit <type> --data '{json}'  Emit telemetry event
+ *
  * Phase Operations:
  *   phase next-decimal <phase>         Calculate next decimal phase number
  *   phase add <description>            Append new phase to roadmap + create dir
@@ -4303,6 +4306,41 @@ function cmdInitProgress(cwd, includes, raw) {
   output(result, raw);
 }
 
+// ─── Telemetry Commands ──────────────────────────────────────────────────────
+
+function cmdTelemetryEmit(cwd, type, dataStr, raw) {
+  if (!type) {
+    error('Event type required. Valid types: ' + VALID_EVENT_TYPES.join(', '));
+  }
+  if (!VALID_EVENT_TYPES.includes(type)) {
+    error('Invalid event type: ' + type + '. Valid types: ' + VALID_EVENT_TYPES.join(', '));
+  }
+
+  const telConfig = getTelemetryConfig(cwd);
+  if (!telConfig.enabled) {
+    output({ emitted: false, reason: 'telemetry disabled' }, raw, 'disabled');
+    return;
+  }
+
+  let data = {};
+  if (dataStr) {
+    try {
+      data = JSON.parse(dataStr);
+    } catch (e) {
+      error('Invalid JSON in --data: ' + e.message);
+    }
+  }
+
+  const telemetryDir = ensureTelemetryDir(cwd);
+  const event = createEventEnvelope(type, data);
+  const eventsFile = path.join(telemetryDir, 'events.jsonl');
+  fs.appendFileSync(eventsFile, JSON.stringify(event) + '\n');
+
+  rotateIfNeeded(telemetryDir, telConfig);
+
+  output({ emitted: true, type, ts: event.ts }, raw, 'ok');
+}
+
 // ─── CLI Router ───────────────────────────────────────────────────────────────
 
 async function main() {
@@ -4680,6 +4718,19 @@ async function main() {
         limit: limitIdx !== -1 ? parseInt(args[limitIdx + 1], 10) : 10,
         freshness: freshnessIdx !== -1 ? args[freshnessIdx + 1] : null,
       }, raw);
+      break;
+    }
+
+    case 'telemetry': {
+      const subcommand = args[1];
+      if (subcommand === 'emit') {
+        const type = args[2];
+        const dataIdx = args.indexOf('--data');
+        const data = dataIdx !== -1 ? args[dataIdx + 1] : null;
+        cmdTelemetryEmit(cwd, type, data, raw);
+      } else {
+        error('Unknown telemetry subcommand: ' + (subcommand || '(none)') + '. Available: emit, query, digest, rotate, stats');
+      }
       break;
     }
 
