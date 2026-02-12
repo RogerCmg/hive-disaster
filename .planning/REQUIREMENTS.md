@@ -9,16 +9,16 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### Infrastructure
 
-- [ ] **INFRA-01**: System stores events in append-only JSONL format at `.planning/telemetry/events.jsonl`
-- [ ] **INFRA-02**: Every event has common envelope fields: `ts` (ISO timestamp), `session` (ID), `type` (event discriminator), `v` (schema version), `data` (payload)
-- [ ] **INFRA-03**: System supports 10 event types: agent_completion, tool_error, deviation, checkpoint, verification_gap, plan_revision, user_correction, fallback, context_compaction, session_summary
-- [ ] **INFRA-04**: `hive-tools.js telemetry emit <type> --data '{json}'` appends event to JSONL
-- [ ] **INFRA-05**: `hive-tools.js telemetry query [--type X] [--since Y] [--limit N]` retrieves filtered events
-- [ ] **INFRA-06**: `hive-tools.js telemetry digest` generates INSIGHTS.md from accumulated events
-- [ ] **INFRA-07**: `hive-tools.js telemetry rotate` archives events.jsonl when over 500KB threshold
-- [ ] **INFRA-08**: `hive-tools.js telemetry stats` shows quick summary (event counts, file sizes, top types)
-- [ ] **INFRA-09**: System rotates events.jsonl automatically when exceeding 500KB, keeping max 10 archives
-- [ ] **INFRA-10**: Config section `telemetry` in config.json with toggles: `enabled`, `hooks`, `workflow_events`, `transcript_analysis`
+- [x] **INFRA-01**: System stores events in append-only JSONL format at `.planning/telemetry/events.jsonl`
+- [x] **INFRA-02**: Every event has common envelope fields: `ts` (ISO timestamp), `session` (ID), `type` (event discriminator), `v` (schema version), `data` (payload)
+- [x] **INFRA-03**: System supports 10 event types: agent_completion, tool_error, deviation, checkpoint, verification_gap, plan_revision, user_correction, fallback, context_compaction, session_summary
+- [x] **INFRA-04**: `hive-tools.js telemetry emit <type> --data '{json}'` appends event to JSONL
+- [x] **INFRA-05**: `hive-tools.js telemetry query [--type X] [--since Y] [--limit N]` retrieves filtered events
+- [x] **INFRA-06**: `hive-tools.js telemetry digest` generates INSIGHTS.md from accumulated events
+- [x] **INFRA-07**: `hive-tools.js telemetry rotate` archives events.jsonl when over 500KB threshold
+- [x] **INFRA-08**: `hive-tools.js telemetry stats` shows quick summary (event counts, file sizes, top types)
+- [x] **INFRA-09**: System rotates events.jsonl automatically when exceeding 500KB, keeping max 10 archives
+- [x] **INFRA-10**: Config section `telemetry` in config.json with toggles: `enabled`, `hooks`, `workflow_events`, `transcript_analysis`
 
 ### Hook Observers
 
@@ -88,16 +88,16 @@ Deferred to future release. Tracked but not in current roadmap.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| INFRA-01 | Phase 1 | Pending |
-| INFRA-02 | Phase 1 | Pending |
-| INFRA-03 | Phase 1 | Pending |
-| INFRA-04 | Phase 1 | Pending |
-| INFRA-05 | Phase 1 | Pending |
-| INFRA-06 | Phase 1 | Pending |
-| INFRA-07 | Phase 1 | Pending |
-| INFRA-08 | Phase 1 | Pending |
-| INFRA-09 | Phase 1 | Pending |
-| INFRA-10 | Phase 1 | Pending |
+| INFRA-01 | Phase 1 | Done ✓ |
+| INFRA-02 | Phase 1 | Done ✓ |
+| INFRA-03 | Phase 1 | Done ✓ |
+| INFRA-04 | Phase 1 | Done ✓ |
+| INFRA-05 | Phase 1 | Done ✓ |
+| INFRA-06 | Phase 1 | Done ✓ |
+| INFRA-07 | Phase 1 | Done ✓ |
+| INFRA-08 | Phase 1 | Done ✓ |
+| INFRA-09 | Phase 1 | Done ✓ |
+| INFRA-10 | Phase 1 | Done ✓ |
 | HOOK-01 | Phase 2 | Pending |
 | HOOK-02 | Phase 2 | Pending |
 | HOOK-03 | Phase 2 | Pending |
@@ -130,4 +130,4 @@ Deferred to future release. Tracked but not in current roadmap.
 
 ---
 *Requirements defined: 2026-02-11*
-*Last updated: 2026-02-11 after initial definition*
+*Last updated: 2026-02-12 after Phase 1 completion*

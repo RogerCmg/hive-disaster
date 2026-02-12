@@ -12,7 +12,7 @@ Hive Recall gives agents persistent memory across sessions by observing executio
 
 Decimal phases appear between their surrounding integers in numeric order.
 
-- [ ] **Phase 1: Core Infrastructure** - Event storage backbone, CLI commands, config, and rotation
+- [x] **Phase 1: Core Infrastructure** - Event storage backbone, CLI commands, config, and rotation
 - [ ] **Phase 2: Hook Observers** - Passive automatic capture of agent lifecycle events
 - [ ] **Phase 3: Workflow Integration** - Semantic event capture at workflow decision points
 - [ ] **Phase 4: Feedback Loop** - Digest generation, insight injection into agent context, /hive:insights command
@@ -34,9 +34,9 @@ Decimal phases appear between their surrounding integers in numeric order.
 **Plans:** 3 plans
 
 Plans:
-- [ ] 01-01-PLAN.md -- JSONL storage engine, event envelope, emit command, config template, .gitignore (INFRA-01, INFRA-02, INFRA-03, INFRA-10 partial)
-- [ ] 01-02-PLAN.md -- Query, stats, rotate commands with auto-rotation (INFRA-04, INFRA-05, INFRA-07, INFRA-08, INFRA-09)
-- [ ] 01-03-PLAN.md -- Digest command and end-to-end verification (INFRA-06, INFRA-10)
+- [x] 01-01-PLAN.md -- JSONL storage engine, event envelope, emit command, config template, .gitignore (INFRA-01, INFRA-02, INFRA-03, INFRA-10 partial)
+- [x] 01-02-PLAN.md -- Query, stats, rotate commands with auto-rotation (INFRA-04, INFRA-05, INFRA-07, INFRA-08, INFRA-09)
+- [x] 01-03-PLAN.md -- Digest command and end-to-end verification (INFRA-06, INFRA-10)
 
 ### Phase 2: Hook Observers
 **Goal**: Agent completions, tool errors, context compaction, and session boundaries are automatically captured without any workflow changes
@@ -119,7 +119,7 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Core Infrastructure | 0/3 | Not started | - |
+| 1. Core Infrastructure | 3/3 | Complete ✓ | 2026-02-12 |
 | 2. Hook Observers | 0/2 | Not started | - |
 | 3. Workflow Integration | 0/2 | Not started | - |
 | 4. Feedback Loop | 0/3 | Not started | - |
@@ -128,4 +128,4 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6
 
 ---
 *Roadmap created: 2026-02-11*
-*Last updated: 2026-02-11*
+*Last updated: 2026-02-12*
