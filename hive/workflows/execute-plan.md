@@ -554,14 +554,6 @@ Options:
 Set `BUILD_GATE_RESULT` variable for use in create_summary step. Values: "passed", "skipped", "skipped_by_user", "failed", "timeout".
 </step>
 
-<step name="generate_user_setup">
-```bash
-grep -A 50 "^user_setup:" .planning/phases/XX-name/{phase}-{plan}-PLAN.md | head -50
-```
-
-If user_setup exists: create `{phase}-USER-SETUP.md` using template `~/.claude/hive/templates/user-setup.md`. Per service: env vars table, account setup checklist, dashboard config, local dev notes, verification commands. Status "Incomplete". Set `USER_SETUP_CREATED=true`. If empty/missing: skip.
-</step>
-
 <step name="create_summary">
 Create `{phase}-{plan}-SUMMARY.md` at `.planning/phases/XX-name/`. Use `~/.claude/hive/templates/summary.md`.
 
@@ -593,6 +585,150 @@ After the "Issues Encountered" section, add:
 If BUILD_GATE_RESULT is not set (git flow none, gate disabled): omit the section entirely.
 
 Next: more plans → "Ready for {next-plan}" | last → "Phase complete, ready for transition".
+</step>
+
+<step name="create_pr_and_merge">
+**Create PR from plan branch to dev and self-merge after build gate passes.**
+
+**1. Check if PR flow applies:**
+
+```bash
+GIT_FLOW=$(echo "$CONFIG_CONTENT" | jq -r '.git.flow // "github"')
+GIT_DEV_BRANCH=$(echo "$CONFIG_CONTENT" | jq -r '.git.dev_branch // "dev"')
+```
+
+**Skip conditions (any one skips):**
+- `GIT_FLOW` is `"none"` -> Skip: "Git flow disabled. Skipping PR creation." Set `PR_FLOW_RESULT="skipped_flow_disabled"`. Continue to next step.
+- `BUILD_GATE_RESULT` is `"failed"` or `"timeout"` (and user chose "stop") -> Skip: "Build gate did not pass. Skipping PR creation." Set `PR_FLOW_RESULT="skipped_build_failed"`. Continue to next step.
+
+**Check gh CLI availability:**
+
+```bash
+GH_CHECK=$(node ./.claude/hive/bin/hive-tools.js git detect --raw)
+GH_AVAILABLE=$(echo "$GH_CHECK" | jq -r '.gh.available')
+```
+
+If `GH_AVAILABLE` is `false`: Skip with message "gh CLI not available. Skipping PR creation. Plan code is committed locally on branch." Set `PR_FLOW_RESULT="skipped_no_gh"`. Continue to next step.
+
+**2. Construct PR title and body from SUMMARY.md:**
+
+Read the SUMMARY.md that was just created in the previous step:
+
+```bash
+SUMMARY_PATH=".planning/phases/${PHASE_DIR}/${PHASE}-${PLAN}-SUMMARY.md"
+```
+
+Extract from SUMMARY.md:
+- One-liner: the bold line after the title (the substantive description)
+- Task commits section: the "## Task Commits" table
+
+```bash
+# Extract one-liner (first bold line after the title)
+ONE_LINER=$(sed -n 's/^\*\*\(.*\)\*\*$/\1/p' "$SUMMARY_PATH" | head -1)
+
+# Extract task commits section
+TASK_COMMITS=$(sed -n '/^## Task Commits/,/^##/p' "$SUMMARY_PATH" | head -20)
+```
+
+Construct PR title: `${PHASE}-${PLAN}: ${ONE_LINER}` (truncate to 72 chars if needed)
+
+Construct PR body in markdown format:
+
+```
+## ${PHASE}-${PLAN}
+
+${ONE_LINER}
+
+### Task Commits
+${TASK_COMMITS}
+
+### Build Gate
+**Result:** ${BUILD_GATE_RESULT}
+**Command:** ${BUILD_CMD}
+
+### Context
+Phase: ${PHASE_NUMBER} - ${PHASE_NAME}
+Branch: $(git branch --show-current)
+```
+
+Truncate body at 4000 chars to avoid shell argument limits.
+
+**3. Push branch to remote and create PR:**
+
+```bash
+# Push plan branch to remote (required for gh pr create)
+git push -u origin "$(git branch --show-current)" 2>/dev/null
+```
+
+If push fails: set `PR_FLOW_RESULT="skipped_push_failed"`, log "Could not push branch to remote. Skipping PR creation." Continue to next step.
+
+```bash
+PR_RESULT=$(node ./.claude/hive/bin/hive-tools.js git create-pr \
+  --base "${GIT_DEV_BRANCH}" \
+  --title "${PR_TITLE}" \
+  --body "${PR_BODY}" \
+  --raw)
+PR_SUCCESS=$(echo "$PR_RESULT" | jq -r '.success')
+PR_URL=$(echo "$PR_RESULT" | jq -r '.pr_url // empty')
+```
+
+If PR creation fails: log warning with error, set `PR_FLOW_RESULT="failed_pr_create"`. Continue to next step (do NOT block execution).
+
+**4. Self-merge the PR (single-terminal mode):**
+
+Extract PR number from URL:
+
+```bash
+PR_NUMBER=$(echo "$PR_URL" | grep -oE '[0-9]+$')
+```
+
+If PR_NUMBER is empty, fall back:
+
+```bash
+PR_NUMBER=$(gh pr list --head "$(git branch --show-current)" --json number --jq '.[0].number' 2>/dev/null)
+```
+
+Merge:
+
+```bash
+MERGE_RESULT=$(node ./.claude/hive/bin/hive-tools.js git self-merge-pr "${PR_NUMBER}" --raw)
+MERGE_SUCCESS=$(echo "$MERGE_RESULT" | jq -r '.success')
+MERGE_STRATEGY=$(echo "$MERGE_RESULT" | jq -r '.strategy')
+```
+
+Handle merge result:
+- `success: true` -> Log: "PR #${PR_NUMBER} merged (${MERGE_STRATEGY}). Branch deleted by gh." Set `PR_FLOW_RESULT="merged"`.
+- `success: false`, error contains "merge conflict" -> Report conflict to user with options: resolve, skip, stop.
+- `success: false`, other error -> Log warning. Set `PR_FLOW_RESULT="failed_merge"`. Continue.
+
+**5. After successful merge, checkout dev and pull:**
+
+```bash
+git checkout "${GIT_DEV_BRANCH}"
+git pull origin "${GIT_DEV_BRANCH}" 2>/dev/null || true
+```
+
+This syncs the merge commit locally so the next plan branch forks from the latest dev state.
+
+**6. Record PR result for SUMMARY update (optional):**
+
+If the workflow wants to append PR info to the existing SUMMARY.md, it can add a "## PR Flow" section. This is optional — the SUMMARY was already created, so this is an append:
+
+```
+## PR Flow
+
+**Result:** ${PR_FLOW_RESULT}
+**PR:** ${PR_URL}
+**Merge strategy:** ${MERGE_STRATEGY}
+```
+</step>
+
+<step name="generate_user_setup">
+```bash
+grep -A 50 "^user_setup:" .planning/phases/XX-name/{phase}-{plan}-PLAN.md | head -50
+```
+
+If user_setup exists: create `{phase}-USER-SETUP.md` using template `~/.claude/hive/templates/user-setup.md`. Per service: env vars table, account setup checklist, dashboard config, local dev notes, verification commands. Status "Incomplete". Set `USER_SETUP_CREATED=true`. If empty/missing: skip.
 </step>
 
 <step name="update_current_position">
