@@ -123,7 +123,7 @@ Plans:
   2. The `execute-plan.md` workflow extracts recall_context and passes a `<recall>` block to spawned executor agents
   3. All 34 requirement checkboxes in REQUIREMENTS.md show `[x]` matching their verified status
   4. Flow 2 (Session Analysis) works end-to-end: session_summary → digest → recall_context → future agents
-**Plans:** TBD (1 plan expected)
+**Plans:** 1 plan
 
 Plans:
 - [ ] 07-01-PLAN.md -- Wire session_summary into digest, add recall to execute-plan, sync checkboxes
