@@ -4110,6 +4110,10 @@ function cmdInitExecutePhase(cwd, phase, includes, raw) {
     milestone_branch_template: config.milestone_branch_template,
     verifier_enabled: config.verifier,
 
+    // Git flow config (Phase 9)
+    git_flow: config.git_flow,
+    git_dev_branch: config.git_dev_branch,
+
     // Phase info
     phase_found: !!phaseInfo,
     phase_dir: phaseInfo?.directory || null,
@@ -4307,6 +4311,10 @@ function cmdInitNewProject(cwd, raw) {
     // Git state
     has_git: pathExistsInternal(cwd, '.git'),
 
+    // Git flow config (Phase 9)
+    git_flow: config.git_flow,
+    git_dev_branch: config.git_dev_branch,
+
     // Enhanced search
     brave_search_available: hasBraveSearch,
   };
@@ -4332,6 +4340,10 @@ function cmdInitNewMilestone(cwd, raw) {
     // Current milestone
     current_milestone: milestone.version,
     current_milestone_name: milestone.name,
+
+    // Git flow config (Phase 9)
+    git_flow: config.git_flow,
+    git_dev_branch: config.git_dev_branch,
 
     // File existence
     project_exists: pathExistsInternal(cwd, '.planning/PROJECT.md'),
@@ -5258,6 +5270,281 @@ function cmdGitDetectBuildCmd(cwd, raw) {
   }
 }
 
+// ─── Git Subcommands ──────────────────────────────────────────────────────────
+
+function cmdGitCurrentBranch(cwd, raw) {
+  const result = execCommand('git', ['rev-parse', '--abbrev-ref', 'HEAD'], { cwd });
+  if (result.success) {
+    output({ success: true, branch: result.stdout }, raw, result.stdout);
+  } else {
+    output({ success: false, error: result.stderr }, raw, '');
+  }
+}
+
+function cmdGitStatus(cwd, raw) {
+  const config = loadConfig(cwd);
+
+  // Current branch
+  const branchResult = execCommand('git', ['rev-parse', '--abbrev-ref', 'HEAD'], { cwd });
+  const branch = branchResult.success ? branchResult.stdout.trim() : 'unknown';
+
+  // Ahead/behind (only if tracking branch exists)
+  let ahead = 0, behind = 0, hasRemote = false;
+  const trackResult = execCommand('git', ['rev-parse', '--abbrev-ref', '@{u}'], { cwd });
+  if (trackResult.success) {
+    hasRemote = true;
+    const aheadResult = execCommand('git', ['rev-list', '--count', '@{u}..HEAD'], { cwd });
+    const behindResult = execCommand('git', ['rev-list', '--count', 'HEAD..@{u}'], { cwd });
+    ahead = aheadResult.success ? parseInt(aheadResult.stdout.trim(), 10) || 0 : 0;
+    behind = behindResult.success ? parseInt(behindResult.stdout.trim(), 10) || 0 : 0;
+  }
+
+  // Open PR count (only if gh available)
+  let openPRs = 0, ghAvailable = false;
+  const ghResult = execCommand('gh', ['pr', 'list', '--state', 'open', '--json', 'number', '--jq', 'length'], { cwd });
+  if (ghResult.success) {
+    ghAvailable = true;
+    openPRs = parseInt(ghResult.stdout.trim(), 10) || 0;
+  }
+
+  output({
+    success: true,
+    branch,
+    ahead,
+    behind,
+    has_remote: hasRemote,
+    open_prs: openPRs,
+    gh_available: ghAvailable,
+    git_flow: config.git_flow,
+    dev_branch: config.git_dev_branch
+  }, raw, branch);
+}
+
+function cmdGitCreateDevBranch(cwd, raw) {
+  const config = loadConfig(cwd);
+  if (config.git_flow === 'none') {
+    output({ success: true, skipped: true, reason: 'git.flow is none' }, raw, 'skipped');
+    return;
+  }
+
+  const devBranch = config.git_dev_branch || 'dev';
+  const check = execCommand('git', ['rev-parse', '--verify', devBranch], { cwd });
+  if (check.success) {
+    output({ success: true, branch: devBranch, created: false, reason: 'already_exists' }, raw, devBranch);
+    return;
+  }
+
+  const result = execCommand('git', ['checkout', '-b', devBranch], { cwd });
+  if (result.success) {
+    output({ success: true, branch: devBranch, created: true }, raw, devBranch);
+  } else {
+    output({ success: false, error: result.stderr }, raw, '');
+  }
+}
+
+function cmdGitCreatePlanBranch(cwd, branchName, raw) {
+  const config = loadConfig(cwd);
+  if (config.git_flow === 'none') {
+    output({ success: true, skipped: true, reason: 'git.flow is none' }, raw, 'skipped');
+    return;
+  }
+
+  if (!branchName) {
+    output({ success: false, error: 'branch name required (--name <branch>)' }, raw, '');
+    return;
+  }
+
+  const devBranch = config.git_dev_branch || 'dev';
+  const devCheck = execCommand('git', ['rev-parse', '--verify', devBranch], { cwd });
+  if (!devCheck.success) {
+    output({ success: false, error: 'dev branch "' + devBranch + '" does not exist. Run git create-dev-branch first.' }, raw, '');
+    return;
+  }
+
+  const result = execCommand('git', ['checkout', '-b', branchName, devBranch], { cwd });
+  if (result.success) {
+    output({ success: true, branch: branchName, base: devBranch, created: true }, raw, branchName);
+  } else {
+    output({ success: false, error: result.stderr }, raw, '');
+  }
+}
+
+function cmdGitRunBuildGate(cwd, raw) {
+  const config = loadConfig(cwd);
+  if (config.git_flow === 'none') {
+    output({ success: true, skipped: true, reason: 'git.flow is none' }, raw, 'skipped');
+    return;
+  }
+
+  const buildCmd = config.git_build_command || detectBuildCommand(cwd).command;
+  if (!buildCmd) {
+    output({ success: true, skipped: true, reason: 'no build command detected' }, raw, 'skipped');
+    return;
+  }
+
+  const timeoutMs = (config.git_build_timeout || 300) * 1000;
+  const parts = buildCmd.split(/\s+/);
+  const result = execCommand(parts[0], parts.slice(1), { cwd, timeout: timeoutMs });
+
+  output({
+    success: result.success,
+    command: buildCmd,
+    exitCode: result.exitCode,
+    timedOut: result.timedOut || false,
+    stdout: result.stdout.slice(0, 2000),
+    stderr: result.stderr.slice(0, 2000),
+  }, raw, result.success ? 'pass' : 'fail');
+}
+
+function cmdGitCreatePr(cwd, options, raw) {
+  const config = loadConfig(cwd);
+  if (config.git_flow === 'none') {
+    output({ success: true, skipped: true, reason: 'git.flow is none' }, raw, 'skipped');
+    return;
+  }
+
+  const base = options.base;
+  const title = options.title;
+  const body = options.body || '';
+
+  if (!base || !title) {
+    output({ success: false, error: 'base and title required (--base <branch> --title <title>)' }, raw, '');
+    return;
+  }
+
+  const ghArgs = ['pr', 'create', '--base', base, '--title', title, '--body', body];
+  const result = execCommand('gh', ghArgs, { cwd });
+
+  if (result.success) {
+    output({ success: true, pr_url: result.stdout.trim(), base, title }, raw, result.stdout.trim());
+  } else {
+    output({ success: false, error: result.stderr }, raw, '');
+  }
+}
+
+function cmdGitSelfMergePr(cwd, prNumber, raw) {
+  const config = loadConfig(cwd);
+  if (config.git_flow === 'none') {
+    output({ success: true, skipped: true, reason: 'git.flow is none' }, raw, 'skipped');
+    return;
+  }
+
+  if (!prNumber) {
+    output({ success: false, error: 'PR number required' }, raw, '');
+    return;
+  }
+
+  const mergeStrategy = config.git_merge_strategy || 'merge';
+  const ghArgs = ['pr', 'merge', prNumber, '--' + mergeStrategy, '--delete-branch'];
+  const result = execCommand('gh', ghArgs, { cwd });
+
+  if (result.success) {
+    output({ success: true, pr: prNumber, strategy: mergeStrategy, merged: true }, raw, 'merged');
+  } else {
+    output({ success: false, error: result.stderr }, raw, '');
+  }
+}
+
+function cmdGitMergeDevToMain(cwd, raw) {
+  const config = loadConfig(cwd);
+  if (config.git_flow === 'none') {
+    output({ success: true, skipped: true, reason: 'git.flow is none' }, raw, 'skipped');
+    return;
+  }
+
+  const devBranch = config.git_dev_branch || 'dev';
+
+  // Try checkout main first, fallback to master
+  let mainBranch = 'main';
+  let checkoutResult = execCommand('git', ['checkout', 'main'], { cwd });
+  if (!checkoutResult.success) {
+    mainBranch = 'master';
+    checkoutResult = execCommand('git', ['checkout', 'master'], { cwd });
+    if (!checkoutResult.success) {
+      output({ success: false, error: 'Could not checkout main or master branch' }, raw, '');
+      return;
+    }
+  }
+
+  const mergeResult = execCommand('git', ['merge', '--no-ff', devBranch, '-m', 'Merge ' + devBranch + ' into ' + mainBranch], { cwd });
+  if (mergeResult.success) {
+    output({ success: true, from: devBranch, to: mainBranch, strategy: 'no-ff' }, raw, 'merged');
+  } else {
+    // Abort the failed merge
+    execCommand('git', ['merge', '--abort'], { cwd });
+    output({ success: false, error: mergeResult.stderr }, raw, '');
+  }
+}
+
+function cmdGitCheckConflicts(cwd, branchName, raw) {
+  const config = loadConfig(cwd);
+  if (config.git_flow === 'none') {
+    output({ success: true, skipped: true, reason: 'git.flow is none' }, raw, 'skipped');
+    return;
+  }
+
+  if (!branchName) {
+    output({ success: false, error: 'branch name required (--branch <branch>)' }, raw, '');
+    return;
+  }
+
+  const devBranch = config.git_dev_branch || 'dev';
+
+  // Check git version for merge-tree availability
+  const versionResult = execCommand('git', ['--version'], { cwd });
+  let mergeTreeAvailable = false;
+  if (versionResult.success) {
+    const vMatch = versionResult.stdout.match(/(\d+\.\d+(?:\.\d+)?)/);
+    if (vMatch) {
+      const parts = vMatch[1].split('.').map(Number);
+      mergeTreeAvailable = parts[0] > 2 || (parts[0] === 2 && (parts[1] || 0) >= 38);
+    }
+  }
+
+  if (mergeTreeAvailable) {
+    const result = execCommand('git', ['merge-tree', '--write-tree', '--no-messages', devBranch, branchName], { cwd });
+    if (result.exitCode === 0) {
+      output({ success: true, has_conflicts: false, method: 'merge-tree' }, raw, 'no-conflicts');
+    } else {
+      output({ success: true, has_conflicts: true, method: 'merge-tree' }, raw, 'conflicts');
+    }
+  } else {
+    // Fallback: dry-run merge approach
+    const result = execCommand('git', ['merge', '--no-commit', '--no-ff', branchName], { cwd });
+    // Abort regardless
+    execCommand('git', ['merge', '--abort'], { cwd });
+    output({ success: true, has_conflicts: !result.success, method: 'merge-dry-run' }, raw, result.success ? 'no-conflicts' : 'conflicts');
+  }
+}
+
+function cmdGitDeletePlanBranch(cwd, branchName, raw) {
+  const config = loadConfig(cwd);
+  if (config.git_flow === 'none') {
+    output({ success: true, skipped: true, reason: 'git.flow is none' }, raw, 'skipped');
+    return;
+  }
+
+  if (!branchName) {
+    output({ success: false, error: 'branch name required' }, raw, '');
+    return;
+  }
+
+  // Safety: refuse to delete protected branches
+  const devBranch = config.git_dev_branch || 'dev';
+  const protectedBranches = ['main', 'master', devBranch];
+  if (protectedBranches.includes(branchName)) {
+    output({ success: false, error: 'Cannot delete protected branch: ' + branchName }, raw, '');
+    return;
+  }
+
+  const result = execCommand('git', ['branch', '-d', branchName], { cwd });
+  if (result.success) {
+    output({ success: true, branch: branchName, deleted: true }, raw, branchName);
+  } else {
+    output({ success: false, error: 'Branch not fully merged. Use git branch -D manually if intended.', branch: branchName }, raw, '');
+  }
+}
+
 // ─── CLI Router ───────────────────────────────────────────────────────────────
 
 async function main() {
@@ -5270,7 +5557,7 @@ async function main() {
   const cwd = process.cwd();
 
   if (!command) {
-    error('Usage: hive-tools <command> [args] [--raw]\nCommands: state, resolve-model, find-phase, commit, verify-summary, verify, frontmatter, template, generate-slug, current-timestamp, list-todos, verify-path-exists, config-ensure-section, init');
+    error('Usage: hive-tools <command> [args] [--raw]\nCommands: state, resolve-model, find-phase, commit, verify-summary, verify, frontmatter, template, generate-slug, current-timestamp, list-todos, verify-path-exists, config-ensure-section, init, git');
   }
 
   switch (command) {
@@ -5681,8 +5968,39 @@ async function main() {
         cmdGitDetect(cwd, raw);
       } else if (subcommand === 'detect-build-cmd') {
         cmdGitDetectBuildCmd(cwd, raw);
+      } else if (subcommand === 'current-branch') {
+        cmdGitCurrentBranch(cwd, raw);
+      } else if (subcommand === 'git-status') {
+        cmdGitStatus(cwd, raw);
+      } else if (subcommand === 'create-dev-branch') {
+        cmdGitCreateDevBranch(cwd, raw);
+      } else if (subcommand === 'create-plan-branch') {
+        const nameIdx = args.indexOf('--name');
+        const branchName = nameIdx !== -1 ? args[nameIdx + 1] : null;
+        cmdGitCreatePlanBranch(cwd, branchName, raw);
+      } else if (subcommand === 'run-build-gate') {
+        cmdGitRunBuildGate(cwd, raw);
+      } else if (subcommand === 'create-pr') {
+        const baseIdx = args.indexOf('--base');
+        const titleIdx = args.indexOf('--title');
+        const bodyIdx = args.indexOf('--body');
+        cmdGitCreatePr(cwd, {
+          base: baseIdx !== -1 ? args[baseIdx + 1] : null,
+          title: titleIdx !== -1 ? args[titleIdx + 1] : null,
+          body: bodyIdx !== -1 ? args[bodyIdx + 1] : null,
+        }, raw);
+      } else if (subcommand === 'self-merge-pr') {
+        cmdGitSelfMergePr(cwd, args[2], raw);
+      } else if (subcommand === 'merge-dev-to-main') {
+        cmdGitMergeDevToMain(cwd, raw);
+      } else if (subcommand === 'check-conflicts') {
+        const branchIdx = args.indexOf('--branch');
+        const conflictBranch = branchIdx !== -1 ? args[branchIdx + 1] : null;
+        cmdGitCheckConflicts(cwd, conflictBranch, raw);
+      } else if (subcommand === 'delete-plan-branch') {
+        cmdGitDeletePlanBranch(cwd, args[2], raw);
       } else {
-        error('Unknown git subcommand: ' + (subcommand || '(none)') + '. Available: detect, detect-build-cmd');
+        error('Unknown git subcommand: ' + (subcommand || '(none)') + '. Available: detect, detect-build-cmd, current-branch, git-status, create-dev-branch, create-plan-branch, run-build-gate, create-pr, self-merge-pr, merge-dev-to-main, check-conflicts, delete-plan-branch');
       }
       break;
     }
