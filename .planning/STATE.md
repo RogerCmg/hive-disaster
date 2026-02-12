@@ -11,8 +11,8 @@ See: .planning/PROJECT.md (updated 2026-02-12)
 
 Phase: 9 of 11 (Branch Lifecycle & Build Gates)
 Plan: 2 of 2 in current phase
-Status: Plan 09-02 complete
-Last activity: 2026-02-12 — Completed 09-02-PLAN.md (build gate orchestration)
+Status: Phase 9 complete (all plans done)
+Last activity: 2026-02-12 — Completed 09-01-PLAN.md (branch lifecycle wiring)
 
 Progress: [███░░░░░░░] 30%
 
@@ -33,6 +33,7 @@ Progress: [███░░░░░░░] 30%
 **Recent Trend:**
 - 08-01: 4min, 2 tasks, 4 files
 - 08-02: 5min, 2 tasks, 2 files
+- 09-01: 5min, 2 tasks, 4 files
 - 09-02: 3min, 1 task, 2 files
 - Trend: Stable
 
@@ -57,6 +58,9 @@ Recent decisions affecting current work:
 - merge-tree preferred for conflict detection on git >= 2.38, dry-run fallback for older
 - Build gate placed between record_completion_time and generate_user_setup in execute-plan workflow
 - BUILD_GATE_RESULT propagates from build_gate step to create_summary for SUMMARY inclusion
+- Plan branches per-plan (not per-phase) for maximum isolation
+- Branch cleanup is best-effort and non-blocking
+- Legacy branching_strategy preserved as fallback alongside git_flow
 
 ### Pending Todos
 
@@ -69,5 +73,5 @@ None.
 ## Session Continuity
 
 **Last session:** 2026-02-12
-**Stopped at:** Completed 09-02-PLAN.md (build gate orchestration in execute-plan.md)
-**Resume file:** Phase 9 Plan 2 complete. Check if 09-01 also done for phase completion.
+**Stopped at:** Completed 09-01-PLAN.md (branch lifecycle wiring in workflows)
+**Resume file:** Phase 9 complete (both 09-01 and 09-02 done). Next: Phase 10
