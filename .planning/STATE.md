@@ -5,38 +5,39 @@
 See: .planning/PROJECT.md (updated 2026-02-11)
 
 **Core value:** Persistent memory across sessions -- agents learn from past failures without breaking fresh-context architecture
-**Current focus:** Phase 1: Core Infrastructure
+**Current focus:** Phase 2: Hook Observers
 
 ## Current Position
 
-**Phase:** 1 of 6 (Core Infrastructure)
-**Current Plan:** 3
-**Total Plans in Phase:** 3
-**Status:** Phase complete — ready for verification
+**Phase:** 2 of 6 (Hook Observers)
+**Current Plan:** 1
+**Total Plans in Phase:** 2
+**Status:** Plan 01 complete
 **Last Activity:** 2026-02-12
 
-**Progress:** [██████████] 100%
+**Progress:** [█████-----] 50%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 1
+- Total plans completed: 4
 - Average duration: 3min
-- Total execution time: 0.05 hours
+- Total execution time: 0.17 hours
 
 **By Phase:**
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
 | Phase 01 P01 | 3min | 2 tasks | 3 files |
-
-**Recent Trend:**
-- Last 5 plans: 3min
-- Trend: -
-
-*Updated after each plan completion*
 | Phase 01 P02 | 2min | 2 tasks | 1 files |
 | Phase 01 P03 | 2min | 2 tasks | 1 files |
+| Phase 02 P01 | 3min | 2 tasks | 4 files |
+
+**Recent Trend:**
+- Last 5 plans: 3min, 2min, 2min, 3min
+- Trend: stable
+
+*Updated after each plan completion*
 
 ## Accumulated Context
 
@@ -55,6 +56,9 @@ Recent decisions affecting current work:
 - [Phase 01]: Stats computes type counts by parsing JSONL on each call (no separate index)
 - [Phase 01]: Digest sections show 'None recorded' placeholder instead of omitting empty categories
 - [Phase 01]: Phase 1 digest kept simple (counts, basic stats); Phase 4 enhances with pattern detection
+- [Phase 02]: Hook writes directly to events.jsonl (no CLI child process) to avoid ~100ms overhead
+- [Phase 02]: Force-tracked .claude/settings.json past .gitignore for hook registration distribution
+- [Phase 02]: Config check treats missing/corrupt config.json as telemetry enabled (consistent with Phase 1)
 
 ### Pending Todos
 
@@ -66,6 +70,6 @@ None yet.
 
 ## Session Continuity
 
-**Last session:** 2026-02-12T01:24:58.997Z
-**Stopped at:** Completed 01-03-PLAN.md (Telemetry Digest and E2E Verification - Phase 1 Complete)
+**Last session:** 2026-02-12T02:00:19Z
+**Stopped at:** Completed 02-01-PLAN.md (Hook Observer Foundation - SubagentStop hook, registrations, session_boundary)
 **Resume file:** None
