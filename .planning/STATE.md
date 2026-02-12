@@ -5,17 +5,17 @@
 See: .planning/PROJECT.md (updated 2026-02-11)
 
 **Core value:** Persistent memory across sessions -- agents learn from past failures without breaking fresh-context architecture
-**Current focus:** Phase 2 complete — next: Phase 3: Workflow Integration
+**Current focus:** Phase 4 in progress — Feedback Loop (enhanced digest + recall injection)
 
 ## Current Position
 
-**Phase:** 2 of 6 (Hook Observers) — COMPLETE
-**Current Plan:** 2/2
-**Total Plans in Phase:** 2
-**Status:** Phase complete — ready for verification
+**Phase:** 4 of 6 (Feedback Loop)
+**Current Plan:** 1/3
+**Total Plans in Phase:** 3
+**Status:** Plan 04-01 complete — continuing to 04-02
 **Last Activity:** 2026-02-12
 
-**Progress:** [██████████] 100%
+**Progress:** [████████░░] 80%
 
 ## Performance Metrics
 
@@ -41,6 +41,7 @@ See: .planning/PROJECT.md (updated 2026-02-11)
 *Updated after each plan completion*
 | Phase 03 P02 | 2min | 2 tasks | 4 files |
 | Phase 03 P01 | 3min | 2 tasks | 3 files |
+| Phase 04 P01 | 3min | 2 tasks | 1 files |
 
 ## Accumulated Context
 
@@ -68,6 +69,9 @@ Recent decisions affecting current work:
 - [Phase 03]: Emit only on failure states, not every check, to reduce noise and focus Recall on actionable gaps
 - [Phase 03]: Workflow event types gated as a group via WORKFLOW_EVENT_TYPES array, not per-type config
 - [Phase 03]: Deviation emits in execute-plan.md (executor), checkpoint emits in execute-phase.md (orchestrator)
+- [Phase 04]: Cap recall patterns at 5 lines with PATTERN/TREND/REC prefixes for bounded agent context
+- [Phase 04]: getRecallContext returns null for empty/missing/placeholder INSIGHTS.md to prevent useless recall blocks
+- [Phase 04]: Exclude display-only init commands (progress, todos, resume, milestone-op) from recall injection
 
 ### Pending Todos
 
@@ -79,6 +83,6 @@ None yet.
 
 ## Session Continuity
 
-**Last session:** 2026-02-12T02:28:29.583Z
-**Stopped at:** Completed 03-01-PLAN.md
+**Last session:** 2026-02-12T03:01:18.980Z
+**Stopped at:** Completed 04-01-PLAN.md
 **Resume file:** None
