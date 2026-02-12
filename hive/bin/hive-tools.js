@@ -575,6 +575,126 @@ function rotateIfNeeded(telemetryDir, config) {
   }
 }
 
+// ─── Transcript Helpers ─────────────────────────────────────────────────────
+
+function resolveClaudeProjectDir(cwd) {
+  const homedir = require('os').homedir();
+  const encoded = cwd.replace(/\//g, '-');
+  return path.join(homedir, '.claude', 'projects', encoded);
+}
+
+function findLatestTranscript(projectDir) {
+  try {
+    const files = fs.readdirSync(projectDir)
+      .filter(f => f.endsWith('.jsonl'))
+      .map(f => ({
+        name: f,
+        path: path.join(projectDir, f),
+        mtime: fs.statSync(path.join(projectDir, f)).mtime,
+      }))
+      .sort((a, b) => b.mtime - a.mtime);
+    return files.length > 0 ? files[0].path : null;
+  } catch {
+    return null;
+  }
+}
+
+function cmdTelemetryTranscript(cwd, sessionId, raw) {
+  const telConfig = getTelemetryConfig(cwd);
+  if (!telConfig.transcript_analysis) {
+    error('Transcript analysis is disabled. Set transcript_analysis: true in config.json telemetry section');
+  }
+
+  const projectDir = resolveClaudeProjectDir(cwd);
+  const transcriptPath = sessionId
+    ? path.join(projectDir, sessionId + '.jsonl')
+    : findLatestTranscript(projectDir);
+
+  if (!transcriptPath || !fs.existsSync(transcriptPath)) {
+    error('No transcript found' + (sessionId ? ' for session ' + sessionId : ''));
+  }
+
+  const content = fs.readFileSync(transcriptPath, 'utf-8');
+  const lines = content.split('\n').filter(Boolean);
+
+  const messages = [];
+  let totalInputTokens = 0;
+  let totalOutputTokens = 0;
+  const toolUses = {};
+  let toolErrors = 0;
+
+  for (const line of lines) {
+    try {
+      const entry = JSON.parse(line);
+      if (entry.type === 'user' || entry.type === 'assistant') {
+        messages.push(entry);
+      }
+      if (entry.type === 'assistant') {
+        const usage = (entry.message && entry.message.usage) || {};
+        totalInputTokens += (usage.input_tokens || 0)
+          + (usage.cache_read_input_tokens || 0)
+          + (usage.cache_creation_input_tokens || 0);
+        totalOutputTokens += usage.output_tokens || 0;
+        const blocks = (entry.message && entry.message.content) || [];
+        for (const block of blocks) {
+          if (block && block.type === 'tool_use') {
+            const name = block.name || 'unknown';
+            toolUses[name] = (toolUses[name] || 0) + 1;
+          }
+          if (block && block.type === 'tool_result' && block.is_error) {
+            toolErrors++;
+          }
+        }
+      }
+    } catch { /* skip malformed lines */ }
+  }
+
+  if (messages.length < 5) {
+    error('Session too short for meaningful analysis (found ' + messages.length + ' messages, minimum 5)');
+  }
+
+  const condensed = messages.map(m => {
+    if (m.type === 'user') {
+      const c = m.message && m.message.content;
+      const text = typeof c === 'string' ? c
+        : Array.isArray(c) ? c
+            .filter(b => b && b.type === 'text')
+            .map(b => b.text).join('\n')
+        : '';
+      return { role: 'user', text: text.substring(0, 2000), ts: m.timestamp };
+    } else {
+      const blocks = (m.message && m.message.content) || [];
+      const textParts = blocks
+        .filter(b => b && b.type === 'text')
+        .map(b => b.text);
+      const tools = blocks
+        .filter(b => b && b.type === 'tool_use')
+        .map(b => b.name + '(' + Object.keys(b.input || {}).join(',') + ')');
+      return {
+        role: 'assistant',
+        text: textParts.join('\n').substring(0, 2000),
+        tools: tools,
+        ts: m.timestamp,
+      };
+    }
+  });
+
+  const result = {
+    session_id: (messages[0] && messages[0].sessionId) || sessionId || 'unknown',
+    transcript_path: transcriptPath,
+    message_count: messages.length,
+    user_turns: messages.filter(m => m.type === 'user').length,
+    assistant_turns: messages.filter(m => m.type === 'assistant').length,
+    total_input_tokens: totalInputTokens,
+    total_output_tokens: totalOutputTokens,
+    tool_uses: toolUses,
+    tool_errors: toolErrors,
+    condensed_transcript: condensed,
+  };
+
+  output(result, raw);
+}
+
 // ─── Output / Error ──────────────────────────────────────────────────────────
 
 function output(result, raw, rawValue) {
@@ -5165,8 +5285,11 @@ async function main() {
       } else if (subcommand === 'rotate') {
         const force = args.indexOf('--force') !== -1;
         cmdTelemetryRotate(cwd, force, raw);
+      } else if (subcommand === 'transcript') {
+        const sessionId = args[2] && !args[2].startsWith('--') ? args[2] : null;
+        cmdTelemetryTranscript(cwd, sessionId, raw);
       } else {
-        error('Unknown telemetry subcommand: ' + (subcommand || '(none)') + '. Available: emit, query, digest, rotate, stats');
+        error('Unknown telemetry subcommand: ' + (subcommand || '(none)') + '. Available: emit, query, digest, rotate, stats, transcript');
       }
       break;
     }
