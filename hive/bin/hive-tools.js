@@ -599,10 +599,19 @@ function findLatestTranscript(projectDir) {
   }
 }
 
-function cmdTelemetryTranscript(cwd, sessionId, raw) {
+function cmdTelemetryTranscript(cwd, sessionId, raw, crossSession) {
   const telConfig = getTelemetryConfig(cwd);
   if (!telConfig.transcript_analysis) {
     error('Transcript analysis is disabled. Set transcript_analysis: true in config.json telemetry section');
+  }
+
+  if (crossSession) {
+    const result = detectCrossSessionPatterns(cwd);
+    if (!result) {
+      error('Not enough session summaries for cross-session analysis (need at least 2)');
+    }
+    output(result, raw);
+    return;
   }
 
   const projectDir = resolveClaudeProjectDir(cwd);
@@ -693,6 +702,93 @@ function cmdTelemetryTranscript(cwd, sessionId, raw) {
   };
 
   output(result, raw);
+}
+
+function detectCrossSessionPatterns(cwd) {
+  const telemetryDir = path.join(cwd, '.planning', 'telemetry');
+  const eventsFile = path.join(telemetryDir, 'events.jsonl');
+  const content = safeReadFile(eventsFile);
+  if (!content) return null;
+
+  const allEvents = content.split('\n').filter(Boolean).reduce((acc, line) => {
+    try {
+      const e = JSON.parse(line);
+      if (e.type === 'session_summary') acc.push(e);
+    } catch { /* skip */ }
+    return acc;
+  }, []);
+
+  if (allEvents.length < 2) return null;
+
+  const events = allEvents.slice(-10);
+
+  // Quality trend
+  const scores = events.map(e => e.data && e.data.quality_score).filter(v => v != null);
+  const avgScore = scores.length > 0 ? scores.reduce((a, b) => a + b, 0) / scores.length : 0;
+  const recentScores = scores.slice(-3);
+  const recentAvg = recentScores.length > 0 ? recentScores.reduce((a, b) => a + b, 0) / recentScores.length : 0;
+  const trend = recentAvg > avgScore + 5 ? 'improving' : recentAvg < avgScore - 5 ? 'declining' : 'stable';
+
+  // Waste trend
+  const wastes = events.map(e => e.data && e.data.waste_pct).filter(v => v != null);
+  const avgWaste = wastes.length > 0 ? wastes.reduce((a, b) => a + b, 0) / wastes.length : 0;
+  const recentWastes = wastes.slice(-3);
+  const recentWasteAvg = recentWastes.length > 0 ? recentWastes.reduce((a, b) => a + b, 0) / recentWastes.length : 0;
+  const wasteTrend = recentWasteAvg > avgWaste + 5 ? 'increasing' : recentWasteAvg < avgWaste - 5 ? 'decreasing' : 'stable';
+
+  // Recurring patterns
+  const patternFreq = {};
+  for (const e of events) {
+    const patterns = (e.data && e.data.patterns) || [];
+    for (const p of patterns) {
+      patternFreq[p] = (patternFreq[p] || 0) + 1;
+    }
+  }
+  const recurringPatterns = Object.entries(patternFreq)
+    .filter(([, count]) => count >= 2)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 5)
+    .map(([pattern, count]) => ({ pattern, count }));
+
+  // Recurring recommendations
+  const recFreq = {};
+  for (const e of events) {
+    const recs = (e.data && e.data.recommendations) || [];
+    for (const r of recs) {
+      recFreq[r] = (recFreq[r] || 0) + 1;
+    }
+  }
+  const recurringRecommendations = Object.entries(recFreq)
+    .filter(([, count]) => count >= 2)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 3)
+    .map(([recommendation, count]) => ({ recommendation, count }));
+
+  // Recurring user preferences
+  const prefFreq = {};
+  for (const e of events) {
+    const prefs = (e.data && e.data.user_preferences) || [];
+    for (const p of prefs) {
+      prefFreq[p] = (prefFreq[p] || 0) + 1;
+    }
+  }
+  const recurringPreferences = Object.entries(prefFreq)
+    .filter(([, count]) => count >= 2)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 3)
+    .map(([preference, count]) => ({ preference, count }));
+
+  return {
+    sessions_analyzed: allEvents.length,
+    window_size: events.length,
+    avg_quality: Math.round(avgScore),
+    quality_trend: trend,
+    avg_waste: Math.round(avgWaste),
+    waste_trend: wasteTrend,
+    recurring_patterns: recurringPatterns,
+    recurring_recommendations: recurringRecommendations,
+    recurring_preferences: recurringPreferences,
+  };
 }
 
 // ─── Output / Error ──────────────────────────────────────────────────────────
@@ -5286,8 +5382,13 @@ async function main() {
         const force = args.indexOf('--force') !== -1;
         cmdTelemetryRotate(cwd, force, raw);
       } else if (subcommand === 'transcript') {
-        const sessionId = args[2] && !args[2].startsWith('--') ? args[2] : null;
-        cmdTelemetryTranscript(cwd, sessionId, raw);
+        const crossSession = args.indexOf('--cross-session') !== -1;
+        if (crossSession) {
+          cmdTelemetryTranscript(cwd, null, raw, true);
+        } else {
+          const sessionId = args[2] && !args[2].startsWith('--') ? args[2] : null;
+          cmdTelemetryTranscript(cwd, sessionId, raw, false);
+        }
       } else {
         error('Unknown telemetry subcommand: ' + (subcommand || '(none)') + '. Available: emit, query, digest, rotate, stats, transcript');
       }
