@@ -722,6 +722,12 @@ function cmdConfigEnsureSection(cwd, raw) {
     },
     parallelization: true,
     brave_search: hasBraveSearch,
+    telemetry: {
+      enabled: true,
+      hooks: true,
+      workflow_events: true,
+      transcript_analysis: false,
+    },
   };
 
   try {
