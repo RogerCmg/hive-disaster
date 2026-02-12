@@ -2147,3 +2147,196 @@ describe('git detect-build-cmd command', () => {
     assert.strictEqual(output.source, 'config', 'source should be config');
   });
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// git subcommands
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe('git subcommands', () => {
+  let tmpDir;
+  const gitEnv = {
+    ...process.env,
+    GIT_AUTHOR_NAME: 'test',
+    GIT_AUTHOR_EMAIL: 'test@test.com',
+    GIT_COMMITTER_NAME: 'test',
+    GIT_COMMITTER_EMAIL: 'test@test.com',
+  };
+
+  beforeEach(() => {
+    tmpDir = createTempProject();
+    execSync('git init && git add -A && git commit --allow-empty -m "init"', {
+      cwd: tmpDir,
+      stdio: 'pipe',
+      env: gitEnv,
+    });
+  });
+
+  afterEach(() => {
+    cleanup(tmpDir);
+  });
+
+  test('current-branch returns branch name', () => {
+    const result = runGsdTools('git current-branch', tmpDir);
+    assert.ok(result.success, `Command failed: ${result.error}`);
+
+    const output = JSON.parse(result.output);
+    assert.strictEqual(output.success, true, 'success should be true');
+    assert.ok(typeof output.branch === 'string', 'branch should be a string');
+    assert.ok(output.branch.length > 0, 'branch should not be empty');
+  });
+
+  test('create-dev-branch creates new branch', () => {
+    const result = runGsdTools('git create-dev-branch', tmpDir);
+    assert.ok(result.success, `Command failed: ${result.error}`);
+
+    const output = JSON.parse(result.output);
+    assert.strictEqual(output.success, true, 'success should be true');
+    assert.strictEqual(output.created, true, 'created should be true');
+    assert.strictEqual(output.branch, 'dev', 'branch should be dev');
+  });
+
+  test('create-dev-branch reports already exists', () => {
+    runGsdTools('git create-dev-branch', tmpDir);
+
+    const result = runGsdTools('git create-dev-branch', tmpDir);
+    assert.ok(result.success, `Command failed: ${result.error}`);
+
+    const output = JSON.parse(result.output);
+    assert.strictEqual(output.success, true, 'success should be true');
+    assert.strictEqual(output.created, false, 'created should be false');
+    assert.strictEqual(output.reason, 'already_exists', 'reason should be already_exists');
+  });
+
+  test('create-plan-branch creates branch from dev', () => {
+    runGsdTools('git create-dev-branch', tmpDir);
+
+    const result = runGsdTools('git create-plan-branch --name hive/08-01-safety', tmpDir);
+    assert.ok(result.success, `Command failed: ${result.error}`);
+
+    const output = JSON.parse(result.output);
+    assert.strictEqual(output.success, true, 'success should be true');
+    assert.strictEqual(output.branch, 'hive/08-01-safety', 'branch should match');
+    assert.strictEqual(output.base, 'dev', 'base should be dev');
+    assert.strictEqual(output.created, true, 'created should be true');
+  });
+
+  test('create-plan-branch fails without dev branch', () => {
+    const result = runGsdTools('git create-plan-branch --name hive/test', tmpDir);
+    const output = JSON.parse(result.output || result.error);
+    assert.strictEqual(output.success, false, 'success should be false');
+    assert.ok(output.error.includes('does not exist'), 'error should mention dev branch not existing');
+  });
+
+  test('create-plan-branch fails without name', () => {
+    runGsdTools('git create-dev-branch', tmpDir);
+
+    const result = runGsdTools('git create-plan-branch', tmpDir);
+    const output = JSON.parse(result.output || result.error);
+    assert.strictEqual(output.success, false, 'success should be false');
+    assert.ok(output.error.includes('branch name required'), 'error should mention name is required');
+  });
+
+  test('delete-plan-branch deletes branch', () => {
+    runGsdTools('git create-dev-branch', tmpDir);
+    runGsdTools('git create-plan-branch --name hive/test', tmpDir);
+    execSync('git checkout dev', { cwd: tmpDir, stdio: 'pipe', env: gitEnv });
+
+    const result = runGsdTools('git delete-plan-branch hive/test', tmpDir);
+    assert.ok(result.success, `Command failed: ${result.error}`);
+
+    const output = JSON.parse(result.output);
+    assert.strictEqual(output.success, true, 'success should be true');
+    assert.strictEqual(output.deleted, true, 'deleted should be true');
+  });
+
+  test('delete-plan-branch refuses protected branches', () => {
+    const result1 = runGsdTools('git delete-plan-branch main', tmpDir);
+    const output1 = JSON.parse(result1.output || result1.error);
+    assert.strictEqual(output1.success, false, 'success should be false for main');
+    assert.ok(output1.error.includes('Cannot delete protected branch'), 'error should mention protected branch');
+
+    const result2 = runGsdTools('git delete-plan-branch dev', tmpDir);
+    const output2 = JSON.parse(result2.output || result2.error);
+    assert.strictEqual(output2.success, false, 'success should be false for dev');
+    assert.ok(output2.error.includes('Cannot delete protected branch'), 'error should mention protected branch');
+  });
+
+  test('run-build-gate skips when no build command', () => {
+    const result = runGsdTools('git run-build-gate', tmpDir);
+    assert.ok(result.success, `Command failed: ${result.error}`);
+
+    const output = JSON.parse(result.output);
+    assert.strictEqual(output.skipped, true, 'should be skipped');
+    assert.strictEqual(output.reason, 'no build command detected', 'reason should mention no build command');
+  });
+
+  test('run-build-gate runs detected command', () => {
+    fs.writeFileSync(
+      path.join(tmpDir, 'package.json'),
+      JSON.stringify({ scripts: { test: 'node -e "process.exit(0)"' } })
+    );
+
+    const result = runGsdTools('git run-build-gate', tmpDir);
+    assert.ok(result.success, `Command failed: ${result.error}`);
+
+    const output = JSON.parse(result.output);
+    assert.strictEqual(output.success, true, 'success should be true');
+    assert.strictEqual(output.command, 'npm test', 'command should be npm test');
+    assert.strictEqual(output.exitCode, 0, 'exitCode should be 0');
+  });
+
+  test('all git subcommands skip when flow is none', () => {
+    fs.writeFileSync(
+      path.join(tmpDir, '.planning', 'config.json'),
+      JSON.stringify({ git: { flow: 'none' } })
+    );
+
+    const r1 = runGsdTools('git create-dev-branch', tmpDir);
+    assert.ok(r1.success, 'create-dev-branch should succeed');
+    const o1 = JSON.parse(r1.output);
+    assert.strictEqual(o1.skipped, true, 'create-dev-branch should be skipped');
+
+    const r2 = runGsdTools('git create-plan-branch --name test', tmpDir);
+    assert.ok(r2.success, 'create-plan-branch should succeed');
+    const o2 = JSON.parse(r2.output);
+    assert.strictEqual(o2.skipped, true, 'create-plan-branch should be skipped');
+
+    const r3 = runGsdTools('git run-build-gate', tmpDir);
+    assert.ok(r3.success, 'run-build-gate should succeed');
+    const o3 = JSON.parse(r3.output);
+    assert.strictEqual(o3.skipped, true, 'run-build-gate should be skipped');
+
+    const r4 = runGsdTools('git delete-plan-branch test', tmpDir);
+    assert.ok(r4.success, 'delete-plan-branch should succeed');
+    const o4 = JSON.parse(r4.output);
+    assert.strictEqual(o4.skipped, true, 'delete-plan-branch should be skipped');
+
+    const r5 = runGsdTools('git check-conflicts --branch test', tmpDir);
+    assert.ok(r5.success, 'check-conflicts should succeed');
+    const o5 = JSON.parse(r5.output);
+    assert.strictEqual(o5.skipped, true, 'check-conflicts should be skipped');
+
+    const r6 = runGsdTools('git merge-dev-to-main', tmpDir);
+    assert.ok(r6.success, 'merge-dev-to-main should succeed');
+    const o6 = JSON.parse(r6.output);
+    assert.strictEqual(o6.skipped, true, 'merge-dev-to-main should be skipped');
+  });
+
+  test('detect-build-cmd detects go test for Go projects', () => {
+    fs.writeFileSync(path.join(tmpDir, 'go.mod'), 'module test\n');
+
+    const result = runGsdTools('git detect-build-cmd', tmpDir);
+    assert.ok(result.success, `Command failed: ${result.error}`);
+
+    const output = JSON.parse(result.output);
+    assert.strictEqual(output.detected, true, 'should be detected');
+    assert.strictEqual(output.command, 'go test ./...', 'command should be go test ./...');
+  });
+
+  test('check-conflicts requires branch name', () => {
+    const result = runGsdTools('git check-conflicts', tmpDir);
+    const output = JSON.parse(result.output || result.error);
+    assert.strictEqual(output.success, false, 'success should be false');
+    assert.ok(output.error.includes('branch name required'), 'error should mention branch name required');
+  });
+});
