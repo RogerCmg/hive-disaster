@@ -279,6 +279,11 @@ Execute each wave. Within a wave: parallel if `PARALLELIZATION=true`, sequential
         summary="Checkpoint response for {plan_id}"
       )
       ```
+   d2. Emit the checkpoint resolution event for Recall:
+      ```bash
+      node ~/.claude/hive/bin/hive-tools.js telemetry emit checkpoint \
+        --data "{\"phase\":\"${PHASE_NUMBER}\",\"plan\":\"${PLAN_ID}\",\"checkpoint_type\":\"${CHECKPOINT_TYPE}\",\"user_response\":\"${USER_RESPONSE}\",\"outcome\":\"${OUTCOME}\"}"
+      ```
    e. Executor wakes up with full context, continues execution
    f. Continue monitoring other executors in the wave
 
@@ -575,6 +580,11 @@ where the entire wave blocks on checkpoint resolution.
    [Awaiting section from agent return]
    ```
 5. User responds: "approved"/"done" | issue description | decision selection
+5b. Emit the checkpoint resolution event for Recall:
+   ```bash
+   node ~/.claude/hive/bin/hive-tools.js telemetry emit checkpoint \
+     --data "{\"phase\":\"${PHASE_NUMBER}\",\"plan\":\"${PLAN_ID}\",\"checkpoint_type\":\"${CHECKPOINT_TYPE}\",\"user_response\":\"${USER_RESPONSE}\",\"outcome\":\"${OUTCOME}\"}"
+   ```
 6. **Spawn continuation agent (NOT resume)** using continuation-prompt.md template:
    - `{completed_tasks_table}`: From checkpoint return
    - `{resume_task_number}` + `{resume_task_name}`: Current task
