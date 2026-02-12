@@ -538,6 +538,17 @@ function parseSinceDuration(sinceStr) {
   return null;
 }
 
+function getRecallContext(cwd) {
+  const insightsPath = path.join(cwd, '.planning', 'telemetry', 'INSIGHTS.md');
+  const content = safeReadFile(insightsPath);
+  if (!content) return null;
+  const match = content.match(/<!-- recall-start -->\n([\s\S]*?)<!-- recall-end -->/);
+  if (!match) return null;
+  const patterns = match[1].trim();
+  if (!patterns || patterns === '- No actionable patterns detected yet.') return null;
+  return patterns;
+}
+
 function rotateIfNeeded(telemetryDir, config) {
   try {
     const eventsFile = path.join(telemetryDir, 'events.jsonl');
@@ -3734,6 +3745,7 @@ function cmdInitExecutePhase(cwd, phase, includes, raw) {
     result.roadmap_content = safeReadFile(path.join(cwd, '.planning', 'ROADMAP.md'));
   }
 
+  result.recall_context = getRecallContext(cwd);
   output(result, raw);
 }
 
@@ -3830,6 +3842,7 @@ function cmdInitPlanPhase(cwd, phase, includes, raw) {
     } catch {}
   }
 
+  result.recall_context = getRecallContext(cwd);
   output(result, raw);
 }
 
@@ -3886,6 +3899,7 @@ function cmdInitNewProject(cwd, raw) {
     brave_search_available: hasBraveSearch,
   };
 
+  result.recall_context = getRecallContext(cwd);
   output(result, raw);
 }
 
@@ -3913,6 +3927,7 @@ function cmdInitNewMilestone(cwd, raw) {
     state_exists: pathExistsInternal(cwd, '.planning/STATE.md'),
   };
 
+  result.recall_context = getRecallContext(cwd);
   output(result, raw);
 }
 
@@ -3960,6 +3975,7 @@ function cmdInitQuick(cwd, description, raw) {
     planning_exists: pathExistsInternal(cwd, '.planning'),
   };
 
+  result.recall_context = getRecallContext(cwd);
   output(result, raw);
 }
 
@@ -4016,6 +4032,7 @@ function cmdInitVerifyWork(cwd, phase, raw) {
     has_verification: phaseInfo?.has_verification || false,
   };
 
+  result.recall_context = getRecallContext(cwd);
   output(result, raw);
 }
 
@@ -4048,6 +4065,7 @@ function cmdInitPhaseOp(cwd, phase, raw) {
     planning_exists: pathExistsInternal(cwd, '.planning'),
   };
 
+  result.recall_context = getRecallContext(cwd);
   output(result, raw);
 }
 
@@ -4202,6 +4220,7 @@ function cmdInitMapCodebase(cwd, raw) {
     codebase_dir_exists: pathExistsInternal(cwd, '.planning/codebase'),
   };
 
+  result.recall_context = getRecallContext(cwd);
   output(result, raw);
 }
 
