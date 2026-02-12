@@ -4110,6 +4110,10 @@ function cmdInitExecutePhase(cwd, phase, includes, raw) {
     milestone_branch_template: config.milestone_branch_template,
     verifier_enabled: config.verifier,
 
+    // Git flow config (Phase 9)
+    git_flow: config.git_flow,
+    git_dev_branch: config.git_dev_branch,
+
     // Phase info
     phase_found: !!phaseInfo,
     phase_dir: phaseInfo?.directory || null,
@@ -4307,6 +4311,10 @@ function cmdInitNewProject(cwd, raw) {
     // Git state
     has_git: pathExistsInternal(cwd, '.git'),
 
+    // Git flow config (Phase 9)
+    git_flow: config.git_flow,
+    git_dev_branch: config.git_dev_branch,
+
     // Enhanced search
     brave_search_available: hasBraveSearch,
   };
@@ -4332,6 +4340,10 @@ function cmdInitNewMilestone(cwd, raw) {
     // Current milestone
     current_milestone: milestone.version,
     current_milestone_name: milestone.name,
+
+    // Git flow config (Phase 9)
+    git_flow: config.git_flow,
+    git_dev_branch: config.git_dev_branch,
 
     // File existence
     project_exists: pathExistsInternal(cwd, '.planning/PROJECT.md'),

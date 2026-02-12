@@ -80,12 +80,32 @@ node ~/.claude/hive/bin/hive-tools.js commit "docs: start milestone v[X.Y] [Name
 INIT=$(node ~/.claude/hive/bin/hive-tools.js init new-milestone)
 ```
 
-Extract from init JSON: `researcher_model`, `synthesizer_model`, `roadmapper_model`, `commit_docs`, `research_enabled`, `current_milestone`, `project_exists`, `roadmap_exists`.
+Extract from init JSON: `researcher_model`, `synthesizer_model`, `roadmapper_model`, `commit_docs`, `research_enabled`, `current_milestone`, `project_exists`, `roadmap_exists`, `git_flow`, `git_dev_branch`.
 
 Extract recall context for agent prompts:
 ```bash
 RECALL=$(echo "$INIT" | jq -r '.recall_context // empty')
 ```
+
+**Git Flow Setup:**
+
+```bash
+GIT_FLOW=$(echo "$INIT" | jq -r '.git_flow // "none"')
+GIT_DEV_BRANCH=$(echo "$INIT" | jq -r '.git_dev_branch // "dev"')
+```
+
+**If GIT_FLOW is not "none":**
+
+```bash
+DEV_RESULT=$(node ~/.claude/hive/bin/hive-tools.js git create-dev-branch --raw)
+```
+
+Parse result:
+- `created: true` -> Display: "Git flow enabled. Created and checked out branch: {dev_branch}"
+- `created: false, reason: 'already_exists'` -> Checkout dev: `git checkout ${GIT_DEV_BRANCH}`. Display: "Git flow enabled. Checked out existing branch: {dev_branch}"
+- `skipped: true` -> Display: "Git flow disabled. Continuing on current branch."
+
+**If GIT_FLOW is "none":** Skip. No branch operations.
 
 ## 8. Research Decision
 

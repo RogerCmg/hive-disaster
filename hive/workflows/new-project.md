@@ -43,7 +43,7 @@ The document should describe what you want to build.
 INIT=$(node ~/.claude/hive/bin/hive-tools.js init new-project)
 ```
 
-Parse JSON for: `researcher_model`, `synthesizer_model`, `roadmapper_model`, `commit_docs`, `project_exists`, `has_codebase_map`, `planning_exists`, `has_existing_code`, `has_package_file`, `is_brownfield`, `needs_codebase_map`, `has_git`.
+Parse JSON for: `researcher_model`, `synthesizer_model`, `roadmapper_model`, `commit_docs`, `project_exists`, `has_codebase_map`, `planning_exists`, `has_existing_code`, `has_package_file`, `is_brownfield`, `needs_codebase_map`, `has_git`, `git_flow`, `git_dev_branch`.
 
 Extract recall context for agent prompts:
 ```bash
@@ -56,6 +56,26 @@ RECALL=$(echo "$INIT" | jq -r '.recall_context // empty')
 ```bash
 git init
 ```
+
+**Git Flow Setup:**
+
+```bash
+GIT_FLOW=$(echo "$INIT" | jq -r '.git_flow // "none"')
+GIT_DEV_BRANCH=$(echo "$INIT" | jq -r '.git_dev_branch // "dev"')
+```
+
+**If GIT_FLOW is not "none":**
+
+```bash
+DEV_RESULT=$(node ~/.claude/hive/bin/hive-tools.js git create-dev-branch --raw)
+```
+
+Parse result:
+- `created: true` -> Display: "Git flow enabled. Created and checked out branch: {dev_branch}"
+- `created: false, reason: 'already_exists'` -> Checkout dev: `git checkout ${GIT_DEV_BRANCH}`. Display: "Git flow enabled. Checked out existing branch: {dev_branch}"
+- `skipped: true` -> Display: "Git flow disabled. Continuing on current branch."
+
+**If GIT_FLOW is "none":** Skip. No branch operations.
 
 ## 2. Brownfield Offer
 
