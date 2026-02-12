@@ -22,42 +22,42 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### Hook Observers
 
-- [ ] **HOOK-01**: SubagentStop hook logs agent completions (agent type, duration, exit code, error if any)
-- [ ] **HOOK-02**: PostToolUseFailure hook logs tool errors (tool name, command, error message)
-- [ ] **HOOK-03**: PreCompact hook logs context compaction events (trigger type, context pressure signal)
-- [ ] **HOOK-04**: SessionStart hook logs session start (session type: startup/resume/clear/compact)
-- [ ] **HOOK-05**: SessionEnd hook logs session end (agents spawned count, events recorded count)
-- [ ] **HOOK-06**: All hooks are async and fail-silent (try/catch with empty catch, observation never breaks execution)
-- [ ] **HOOK-07**: All hooks filter for Hive-specific events only (ignore non-Hive agents/tools)
+- [x] **HOOK-01**: SubagentStop hook logs agent completions (agent type, duration, exit code, error if any)
+- [x] **HOOK-02**: PostToolUseFailure hook logs tool errors (tool name, command, error message)
+- [x] **HOOK-03**: PreCompact hook logs context compaction events (trigger type, context pressure signal)
+- [x] **HOOK-04**: SessionStart hook logs session start (session type: startup/resume/clear/compact)
+- [x] **HOOK-05**: SessionEnd hook logs session end (agents spawned count, events recorded count)
+- [x] **HOOK-06**: All hooks are async and fail-silent (try/catch with empty catch, observation never breaks execution)
+- [x] **HOOK-07**: All hooks filter for Hive-specific events only (ignore non-Hive agents/tools)
 
 ### Workflow Integration
 
-- [ ] **WFLOW-01**: execute-plan workflow emits `deviation` event when executor auto-fixes (Rules 1-3) or escalates (Rule 4)
-- [ ] **WFLOW-02**: execute-phase workflow emits `checkpoint` event after each checkpoint resolution (type, user response, outcome)
-- [ ] **WFLOW-03**: verify-work workflow emits `verification_gap` event when verification finds gaps (level, what failed, severity)
-- [ ] **WFLOW-04**: plan-phase workflow emits `plan_revision` event when plan is revised after checker feedback (round number, changes)
-- [ ] **WFLOW-05**: Any workflow with confirmation gate emits `user_correction` event when user modifies/rejects agent output
+- [x] **WFLOW-01**: execute-plan workflow emits `deviation` event when executor auto-fixes (Rules 1-3) or escalates (Rule 4)
+- [x] **WFLOW-02**: execute-phase workflow emits `checkpoint` event after each checkpoint resolution (type, user response, outcome)
+- [x] **WFLOW-03**: verify-work workflow emits `verification_gap` event when verification finds gaps (level, what failed, severity)
+- [x] **WFLOW-04**: plan-phase workflow emits `plan_revision` event when plan is revised after checker feedback (round number, changes)
+- [x] **WFLOW-05**: Any workflow with confirmation gate emits `user_correction` event when user modifies/rejects agent output
 
 ### Feedback Loop
 
-- [ ] **FEED-01**: `hive-tools.js telemetry digest` generates `.planning/telemetry/INSIGHTS.md` with agent performance tables, recurring patterns, deviation trends, and recommendations
-- [ ] **FEED-02**: Init commands include `recall_context` field in JSON output, extracted from INSIGHTS.md top patterns
-- [ ] **FEED-03**: Workflows that spawn agents pass `<recall>` block with relevant past patterns to agent prompts
-- [ ] **FEED-04**: `/hive:insights` slash command displays current insights, offers to regenerate digest
-- [ ] **FEED-05**: `events.jsonl` is gitignored by default (raw data stays local)
-- [ ] **FEED-06**: `INSIGHTS.md` is committed to git (shareable project wisdom)
+- [x] **FEED-01**: `hive-tools.js telemetry digest` generates `.planning/telemetry/INSIGHTS.md` with agent performance tables, recurring patterns, deviation trends, and recommendations
+- [x] **FEED-02**: Init commands include `recall_context` field in JSON output, extracted from INSIGHTS.md top patterns
+- [x] **FEED-03**: Workflows that spawn agents pass `<recall>` block with relevant past patterns to agent prompts
+- [x] **FEED-04**: `/hive:insights` slash command displays current insights, offers to regenerate digest
+- [x] **FEED-05**: `events.jsonl` is gitignored by default (raw data stays local)
+- [x] **FEED-06**: `INSIGHTS.md` is committed to git (shareable project wisdom)
 
 ### Installation
 
-- [ ] **INST-01**: Installer (`bin/install.js`) copies hook observer files during installation
-- [ ] **INST-02**: Installer registers hooks in `.claude/settings.json` (SubagentStop, PostToolUseFailure, PreCompact, SessionStart, SessionEnd)
-- [ ] **INST-03**: Installer creates telemetry config section in default config.json template
+- [x] **INST-01**: Installer (`bin/install.js`) copies hook observer files during installation
+- [x] **INST-02**: Installer registers hooks in `.claude/settings.json` (SubagentStop, PostToolUseFailure, PreCompact, SessionStart, SessionEnd)
+- [x] **INST-03**: Installer creates telemetry config section in default config.json template
 
 ### Transcript Analysis
 
-- [ ] **TRANS-01**: Dedicated `hive-recall-analyst` agent that parses session transcripts for deep patterns (reasoning quality, wasted context, retry patterns)
-- [ ] **TRANS-02**: `session_summary` event type generated by transcript analysis with quality score and recommendations
-- [ ] **TRANS-03**: Pattern detection across sessions (recurring failures, implicit user preferences, agent behavior drift)
+- [x] **TRANS-01**: Dedicated `hive-recall-analyst` agent that parses session transcripts for deep patterns (reasoning quality, wasted context, retry patterns)
+- [x] **TRANS-02**: `session_summary` event type generated by transcript analysis with quality score and recommendations
+- [x] **TRANS-03**: Pattern detection across sessions (recurring failures, implicit user preferences, agent behavior drift)
 
 ## v2 Requirements
 
@@ -98,30 +98,30 @@ Deferred to future release. Tracked but not in current roadmap.
 | INFRA-08 | Phase 1 | Done ✓ |
 | INFRA-09 | Phase 1 | Done ✓ |
 | INFRA-10 | Phase 1 | Done ✓ |
-| HOOK-01 | Phase 2 | Pending |
-| HOOK-02 | Phase 2 | Pending |
-| HOOK-03 | Phase 2 | Pending |
-| HOOK-04 | Phase 2 | Pending |
-| HOOK-05 | Phase 2 | Pending |
-| HOOK-06 | Phase 2 | Pending |
-| HOOK-07 | Phase 2 | Pending |
-| WFLOW-01 | Phase 3 | Pending |
-| WFLOW-02 | Phase 3 | Pending |
-| WFLOW-03 | Phase 3 | Pending |
-| WFLOW-04 | Phase 3 | Pending |
-| WFLOW-05 | Phase 3 | Pending |
-| FEED-01 | Phase 4 | Pending |
-| FEED-02 | Phase 4 | Pending |
-| FEED-03 | Phase 4 | Pending |
-| FEED-04 | Phase 4 | Pending |
-| FEED-05 | Phase 4 | Pending |
-| FEED-06 | Phase 4 | Pending |
-| INST-01 | Phase 5 | Pending |
-| INST-02 | Phase 5 | Pending |
-| INST-03 | Phase 5 | Pending |
-| TRANS-01 | Phase 6 | Pending |
-| TRANS-02 | Phase 6 | Pending |
-| TRANS-03 | Phase 6 | Pending |
+| HOOK-01 | Phase 2 | Done ✓ |
+| HOOK-02 | Phase 2 | Done ✓ |
+| HOOK-03 | Phase 2 | Done ✓ |
+| HOOK-04 | Phase 2 | Done ✓ |
+| HOOK-05 | Phase 2 | Done ✓ |
+| HOOK-06 | Phase 2 | Done ✓ |
+| HOOK-07 | Phase 2 | Done ✓ |
+| WFLOW-01 | Phase 3 | Done ✓ |
+| WFLOW-02 | Phase 3 | Done ✓ |
+| WFLOW-03 | Phase 3 | Done ✓ |
+| WFLOW-04 | Phase 3 | Done ✓ |
+| WFLOW-05 | Phase 3 | Done ✓ |
+| FEED-01 | Phase 4 | Done ✓ |
+| FEED-02 | Phase 4 | Done ✓ |
+| FEED-03 | Phase 4 | Done ✓ |
+| FEED-04 | Phase 4 | Done ✓ |
+| FEED-05 | Phase 4 | Done ✓ |
+| FEED-06 | Phase 4 | Done ✓ |
+| INST-01 | Phase 5 | Done ✓ |
+| INST-02 | Phase 5 | Done ✓ |
+| INST-03 | Phase 5 | Done ✓ |
+| TRANS-01 | Phase 6 | Done ✓ |
+| TRANS-02 | Phase 6 | Done ✓ |
+| TRANS-03 | Phase 6 | Done ✓ |
 
 **Coverage:**
 - v1 requirements: 34 total
@@ -130,4 +130,4 @@ Deferred to future release. Tracked but not in current roadmap.
 
 ---
 *Requirements defined: 2026-02-11*
-*Last updated: 2026-02-12 after Phase 1 completion*
+*Last updated: 2026-02-12 after Phase 7 gap closure*
