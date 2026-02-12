@@ -93,10 +93,10 @@ Plans:
   1. After running `npx hive-cc`, the 4 hook observer files are present in the project's hooks directory
   2. After installation, `.claude/settings.json` contains registrations for SubagentStop, PostToolUseFailure, PreCompact, SessionStart, and SessionEnd hooks pointing to the Recall observer scripts
   3. After installation, the project's config.json includes the `telemetry` section with default toggle values
-**Plans**: TBD
+**Plans:** 1 plan
 
 Plans:
-- [ ] 05-01: Installer hook copying, settings registration, and config setup (INST-01, INST-02, INST-03)
+- [ ] 05-01-PLAN.md -- Hook registration in settings.json, uninstall cleanup, telemetry config defaults (INST-01, INST-02, INST-03)
 
 ### Phase 6: Transcript Analysis
 **Goal**: A dedicated analysis agent can examine session transcripts for deep patterns that neither hooks nor workflow events capture
