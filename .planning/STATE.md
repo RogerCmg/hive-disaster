@@ -10,12 +10,12 @@ See: .planning/PROJECT.md (updated 2026-02-11)
 ## Current Position
 
 **Phase:** 1 of 6 (Core Infrastructure)
-**Current Plan:** 2
+**Current Plan:** 3
 **Total Plans in Phase:** 3
 **Status:** Ready to execute
 **Last Activity:** 2026-02-12
 
-**Progress:** [███░░░░░░░] 33%
+**Progress:** [███████░░░] 67%
 
 ## Performance Metrics
 
@@ -35,6 +35,7 @@ See: .planning/PROJECT.md (updated 2026-02-11)
 - Trend: -
 
 *Updated after each plan completion*
+| Phase 01 P02 | 2min | 2 tasks | 1 files |
 
 ## Accumulated Context
 
@@ -48,6 +49,9 @@ Recent decisions affecting current work:
 - Roadmap: Plan count preliminary at 13 total (3+2+2+3+1+2), refined during planning
 - [Phase 01]: Telemetry enabled by default (treats missing config as enabled) for zero-friction adoption
 - [Phase 01]: Event envelope uses v:1 field for future schema evolution
+- [Phase 01]: Query returns LAST N events (most recent) via slice(-limit) for relevance
+- [Phase 01]: Rotate --force bypasses threshold for manual cleanup use case
+- [Phase 01]: Stats computes type counts by parsing JSONL on each call (no separate index)
 
 ### Pending Todos
 
@@ -59,6 +63,6 @@ None yet.
 
 ## Session Continuity
 
-**Last session:** 2026-02-12
-**Stopped at:** Completed 01-01-PLAN.md (Telemetry Storage Foundation)
+**Last session:** 2026-02-12T01:20:12.522Z
+**Stopped at:** Completed 01-02-PLAN.md (Telemetry Query, Stats, Rotate)
 **Resume file:** None
