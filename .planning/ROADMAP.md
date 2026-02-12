@@ -85,7 +85,11 @@ Plans:
   3. Gate 2 (pre-merge) runs the build on the merge result via `git merge --no-commit` — if the build fails, the merge is aborted and the plan branch is not merged
   4. Gate 3 (pre-main) runs a full build before dev-to-main merge on milestone completion — broken dev never reaches main
   5. File-based signals in `.hive-workers/` communicate merge results and dev head updates between workers and manager
-**Plans**: TBD
+**Plans**: 3 plans
+Plans:
+  - [ ] 11-01-PLAN.md — Merge queue subcommands, Gate 2 pre-merge build, signal helpers
+  - [ ] 11-02-PLAN.md — Repo manager agent, command, and workflow
+  - [ ] 11-03-PLAN.md — Execute-plan queue submission integration and config flag
 
 ## Progress
 
@@ -103,7 +107,7 @@ Plans:
 | 8. Safety & Configuration | v2.0 | 2/2 | Complete | 2026-02-12 |
 | 9. Branch Lifecycle & Build Gates | v2.0 | 2/2 | Complete | 2026-02-12 |
 | 10. PR & Workflow Integration | v2.0 | 3/3 | Complete | 2026-02-12 |
-| 11. Repo Manager | v2.0 | 0/TBD | Not started | - |
+| 11. Repo Manager | v2.0 | 0/3 | Not started | - |
 
 ---
 *Roadmap created: 2026-02-11*
