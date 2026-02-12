@@ -34,6 +34,7 @@
  *   telemetry query [--type X] [--since Y]  Query filtered events
  *     [--limit N]
  *   telemetry stats                         Show event summary
+ *   telemetry rotate [--force]              Rotate events file
  *
  * Phase Operations:
  *   phase next-decimal <phase>         Calculate next decimal phase number
@@ -4384,6 +4385,53 @@ function cmdTelemetryStats(cwd, raw) {
   }, raw, `Events: ${totalEvents} | Size: ${Math.round(fileSize / 1024)}KB | Archives: ${archiveCount}`);
 }
 
+function cmdTelemetryRotate(cwd, force, raw) {
+  const config = getTelemetryConfig(cwd);
+  const telemetryDir = path.join(cwd, '.planning', 'telemetry');
+  const eventsFile = path.join(telemetryDir, 'events.jsonl');
+
+  let size = 0;
+  try {
+    size = fs.statSync(eventsFile).size;
+  } catch {
+    output({ rotated: false, reason: 'no events file' }, raw, 'nothing to rotate');
+    return;
+  }
+
+  if (size === 0) {
+    output({ rotated: false, reason: 'events file empty' }, raw, 'nothing to rotate');
+    return;
+  }
+
+  const thresholdBytes = config.rotation_threshold_kb * 1024;
+  if (!force && size < thresholdBytes) {
+    output({
+      rotated: false,
+      reason: 'under threshold',
+      size_kb: Math.round(size / 1024 * 10) / 10,
+      threshold_kb: config.rotation_threshold_kb,
+    }, raw, 'under threshold');
+    return;
+  }
+
+  // Force rotation or over threshold: archive the file
+  const ts = new Date().toISOString().replace(/:/g, '-').replace(/\.\d+Z$/, 'Z');
+  const archiveName = 'events-' + ts + '.jsonl';
+  fs.renameSync(eventsFile, path.join(telemetryDir, archiveName));
+
+  // Prune old archives
+  const maxArchives = config.max_archives || 10;
+  const archives = fs.readdirSync(telemetryDir)
+    .filter(f => f.startsWith('events-') && f.endsWith('.jsonl'))
+    .sort();
+  while (archives.length > maxArchives) {
+    const oldest = archives.shift();
+    fs.unlinkSync(path.join(telemetryDir, oldest));
+  }
+
+  output({ rotated: true, archived_size_kb: Math.round(size / 1024 * 10) / 10 }, raw, 'rotated');
+}
+
 function cmdTelemetryEmit(cwd, type, dataStr, raw) {
   if (!type) {
     error('Event type required. Valid types: ' + VALID_EVENT_TYPES.join(', '));
@@ -4815,6 +4863,9 @@ async function main() {
         }, raw);
       } else if (subcommand === 'stats') {
         cmdTelemetryStats(cwd, raw);
+      } else if (subcommand === 'rotate') {
+        const force = args.indexOf('--force') !== -1;
+        cmdTelemetryRotate(cwd, force, raw);
       } else {
         error('Unknown telemetry subcommand: ' + (subcommand || '(none)') + '. Available: emit, query, digest, rotate, stats');
       }
