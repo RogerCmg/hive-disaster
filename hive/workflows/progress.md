@@ -12,7 +12,7 @@ Read all files referenced by the invoking prompt's execution_context before star
 **Load progress context (with file contents to avoid redundant reads):**
 
 ```bash
-INIT=$(node ~/.claude/hive/bin/hive-tools.js init progress --include state,roadmap,project,config)
+INIT=$(node ./.claude/hive/bin/hive-tools.js init progress --include state,roadmap,project,config)
 ```
 
 Extract from init JSON: `project_exists`, `roadmap_exists`, `state_exists`, `phases`, `current_phase`, `next_phase`, `milestone_version`, `completed_count`, `phase_count`, `paused_at`.
@@ -54,7 +54,7 @@ No additional file reads needed.
 **Get comprehensive roadmap analysis (replaces manual parsing):**
 
 ```bash
-ROADMAP=$(node ~/.claude/hive/bin/hive-tools.js roadmap analyze)
+ROADMAP=$(node ./.claude/hive/bin/hive-tools.js roadmap analyze)
 ```
 
 This returns structured JSON with:
@@ -73,7 +73,7 @@ Use this instead of manually reading/parsing ROADMAP.md.
 - Find the 2-3 most recent SUMMARY.md files
 - Use `summary-extract` for efficient parsing:
   ```bash
-  node ~/.claude/hive/bin/hive-tools.js summary-extract <path> --fields one_liner
+  node ./.claude/hive/bin/hive-tools.js summary-extract <path> --fields one_liner
   ```
 - This shows "what we've been working on"
   </step>
@@ -88,12 +88,42 @@ Use this instead of manually reading/parsing ROADMAP.md.
 - Check for active debug sessions: `ls .planning/debug/*.md 2>/dev/null | grep -v resolved | wc -l`
   </step>
 
+<step name="git_status">
+**Gather git status information (if git flow enabled):**
+
+```bash
+GIT_STATUS=$(node ./.claude/hive/bin/hive-tools.js git git-status 2>/dev/null)
+GIT_FLOW=$(echo "$GIT_STATUS" | jq -r '.git_flow // "none"')
+```
+
+If GIT_FLOW is not "none", extract display values:
+
+```bash
+GIT_BRANCH=$(echo "$GIT_STATUS" | jq -r '.branch')
+GIT_AHEAD=$(echo "$GIT_STATUS" | jq -r '.ahead')
+GIT_BEHIND=$(echo "$GIT_STATUS" | jq -r '.behind')
+GIT_HAS_REMOTE=$(echo "$GIT_STATUS" | jq -r '.has_remote')
+GIT_OPEN_PRS=$(echo "$GIT_STATUS" | jq -r '.open_prs')
+GIT_GH_AVAILABLE=$(echo "$GIT_STATUS" | jq -r '.gh_available')
+GIT_DEV_BRANCH=$(echo "$GIT_STATUS" | jq -r '.dev_branch')
+```
+
+Format ahead/behind display:
+- has_remote false: "" (empty, no remote info)
+- ahead=0, behind=0: "(up to date)"
+- ahead>0, behind=0: "(${GIT_AHEAD} ahead)"
+- ahead=0, behind>0: "(${GIT_BEHIND} behind)"
+- both>0: "(${GIT_AHEAD} ahead, ${GIT_BEHIND} behind)"
+
+If git-status command fails (node not found, etc.): skip git status section entirely.
+</step>
+
 <step name="report">
 **Generate progress bar from hive-tools, then present rich status report:**
 
 ```bash
 # Get formatted progress bar
-PROGRESS_BAR=$(node ~/.claude/hive/bin/hive-tools.js progress bar --raw)
+PROGRESS_BAR=$(node ./.claude/hive/bin/hive-tools.js progress bar --raw)
 ```
 
 Present:
@@ -112,6 +142,13 @@ Present:
 Phase [N] of [total]: [phase-name]
 Plan [M] of [phase-total]: [status]
 CONTEXT: [✓ if has_context | - if not]
+
+{If GIT_FLOW is not "none":}
+
+## Git Status
+Branch: ${GIT_BRANCH} ${AHEAD_BEHIND_DISPLAY}
+Open PRs: ${GIT_OPEN_PRS} ${GIT_GH_AVAILABLE ? "" : "(gh CLI unavailable)"}
+Flow: ${GIT_FLOW} (dev: ${GIT_DEV_BRANCH})
 
 ## Key Decisions Made
 - [decision 1 from STATE.md]

@@ -5281,6 +5281,45 @@ function cmdGitCurrentBranch(cwd, raw) {
   }
 }
 
+function cmdGitStatus(cwd, raw) {
+  const config = loadConfig(cwd);
+
+  // Current branch
+  const branchResult = execCommand('git', ['rev-parse', '--abbrev-ref', 'HEAD'], { cwd });
+  const branch = branchResult.success ? branchResult.stdout.trim() : 'unknown';
+
+  // Ahead/behind (only if tracking branch exists)
+  let ahead = 0, behind = 0, hasRemote = false;
+  const trackResult = execCommand('git', ['rev-parse', '--abbrev-ref', '@{u}'], { cwd });
+  if (trackResult.success) {
+    hasRemote = true;
+    const aheadResult = execCommand('git', ['rev-list', '--count', '@{u}..HEAD'], { cwd });
+    const behindResult = execCommand('git', ['rev-list', '--count', 'HEAD..@{u}'], { cwd });
+    ahead = aheadResult.success ? parseInt(aheadResult.stdout.trim(), 10) || 0 : 0;
+    behind = behindResult.success ? parseInt(behindResult.stdout.trim(), 10) || 0 : 0;
+  }
+
+  // Open PR count (only if gh available)
+  let openPRs = 0, ghAvailable = false;
+  const ghResult = execCommand('gh', ['pr', 'list', '--state', 'open', '--json', 'number', '--jq', 'length'], { cwd });
+  if (ghResult.success) {
+    ghAvailable = true;
+    openPRs = parseInt(ghResult.stdout.trim(), 10) || 0;
+  }
+
+  output({
+    success: true,
+    branch,
+    ahead,
+    behind,
+    has_remote: hasRemote,
+    open_prs: openPRs,
+    gh_available: ghAvailable,
+    git_flow: config.git_flow,
+    dev_branch: config.git_dev_branch
+  }, raw, branch);
+}
+
 function cmdGitCreateDevBranch(cwd, raw) {
   const config = loadConfig(cwd);
   if (config.git_flow === 'none') {
@@ -5931,6 +5970,8 @@ async function main() {
         cmdGitDetectBuildCmd(cwd, raw);
       } else if (subcommand === 'current-branch') {
         cmdGitCurrentBranch(cwd, raw);
+      } else if (subcommand === 'git-status') {
+        cmdGitStatus(cwd, raw);
       } else if (subcommand === 'create-dev-branch') {
         cmdGitCreateDevBranch(cwd, raw);
       } else if (subcommand === 'create-plan-branch') {
@@ -5959,7 +6000,7 @@ async function main() {
       } else if (subcommand === 'delete-plan-branch') {
         cmdGitDeletePlanBranch(cwd, args[2], raw);
       } else {
-        error('Unknown git subcommand: ' + (subcommand || '(none)') + '. Available: detect, detect-build-cmd, current-branch, create-dev-branch, create-plan-branch, run-build-gate, create-pr, self-merge-pr, merge-dev-to-main, check-conflicts, delete-plan-branch');
+        error('Unknown git subcommand: ' + (subcommand || '(none)') + '. Available: detect, detect-build-cmd, current-branch, git-status, create-dev-branch, create-plan-branch, run-build-gate, create-pr, self-merge-pr, merge-dev-to-main, check-conflicts, delete-plan-branch');
       }
       break;
     }
