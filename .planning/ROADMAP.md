@@ -31,12 +31,12 @@ Decimal phases appear between their surrounding integers in numeric order.
   3. Running `hive-tools.js telemetry digest` produces a readable `.planning/telemetry/INSIGHTS.md` with agent performance tables and pattern summaries
   4. Running `hive-tools.js telemetry rotate` archives events.jsonl when over 500KB and keeps at most 10 archive files
   5. The `telemetry` section in config.json controls whether emit calls write events (when `enabled: false`, no events are recorded)
-**Plans**: TBD
+**Plans:** 3 plans
 
 Plans:
-- [ ] 01-01: JSONL storage engine and event envelope (INFRA-01, INFRA-02, INFRA-03)
-- [ ] 01-02: CLI commands -- emit, query, stats, rotate (INFRA-04, INFRA-05, INFRA-07, INFRA-08, INFRA-09)
-- [ ] 01-03: Digest command and config section (INFRA-06, INFRA-10)
+- [ ] 01-01-PLAN.md -- JSONL storage engine, event envelope, emit command, config template, .gitignore (INFRA-01, INFRA-02, INFRA-03, INFRA-10 partial)
+- [ ] 01-02-PLAN.md -- Query, stats, rotate commands with auto-rotation (INFRA-04, INFRA-05, INFRA-07, INFRA-08, INFRA-09)
+- [ ] 01-03-PLAN.md -- Digest command and end-to-end verification (INFRA-06, INFRA-10)
 
 ### Phase 2: Hook Observers
 **Goal**: Agent completions, tool errors, context compaction, and session boundaries are automatically captured without any workflow changes
