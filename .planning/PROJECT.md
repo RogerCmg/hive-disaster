@@ -2,7 +2,7 @@
 
 ## What This Is
 
-Hive is a meta-prompting and context engineering system for Claude Code. It orchestrates AI agents through spec-driven workflows (commands → workflows → agents → tools), manages project state via markdown artifacts in `.planning/`, and executes phased roadmaps with wave-based parallelization. v1.0 added persistent memory via telemetry/recall. v2.0 adds professional git workflow — dev branch, plan-level branching, build gates, PR-based integration, and a repo manager.
+Hive is a meta-prompting and context engineering system for Claude Code. It orchestrates AI agents through spec-driven workflows (commands → workflows → agents → tools), manages project state via markdown artifacts in `.planning/`, and executes phased roadmaps with wave-based parallelization. v1.0 added persistent memory via telemetry/recall. v2.0 shipped professional git workflow — dev branch, plan-level branching, 3-gate build validation, PR-based integration, and a repo manager with file-based merge queue.
 
 ## Core Value
 
@@ -34,10 +34,31 @@ Give AI agents a structured, safe path from plan to merged code — so quality s
 - ✓ Installer integration — hook registration during `npx hive-cc` install — v1.0
 - ✓ Transcript analysis agent with session quality scoring — v1.0
 - ✓ Cross-session pattern detection and trend tracking — v1.0
+- ✓ mkdir-based locks and atomic temp+rename for crash-safe file operations — v2.0
+- ✓ config.json git section with flow, build_gates, build_command, merge_strategy, dev_branch — v2.0
+- ✓ Auto-detection of git version, gh CLI, and build command (8 project types) — v2.0
+- ✓ All git features bypass when git.flow="none" (backward compatible) — v2.0
+- ✓ Dev branch auto-created on project/milestone init — v2.0
+- ✓ Plan-level branches (hive/phase-{N}-{plan}-{slug}) from dev with auto-cleanup — v2.0
+- ✓ Gate 1 (pre-PR) blocks PR creation on build failure — v2.0
+- ✓ Gate 2 (pre-merge) validates merge result via --no-commit before merge to dev — v2.0
+- ✓ Gate 3 (pre-main) full build before dev-to-main merge on milestone completion — v2.0
+- ✓ Build gates on by default, individually configurable, with timeout (300s default) — v2.0
+- ✓ PR creation via gh pr create with SUMMARY.md-based body — v2.0
+- ✓ Single-terminal self-merge with configurable strategy (merge commit default, squash optional) — v2.0
+- ✓ Merge queue in .hive-workers/merge-queue.json with file-lock safety — v2.0
+- ✓ /hive:manage-repo command with repo manager agent — v2.0
+- ✓ Wave-aware merge ordering and conflict detection via git merge-tree — v2.0
+- ✓ File-based signaling between workers and manager — v2.0
+- ✓ 11 git subcommands in hive-tools.js — v2.0
+- ✓ Git status in progress display (branch, ahead/behind, open PRs) — v2.0
+- ✓ execute-phase branch orchestration per wave — v2.0
+- ✓ execute-plan build gate + PR creation integration — v2.0
+- ✓ complete-milestone dev-to-main merge with Gate 3 — v2.0
 
 ### Active
 
-(Defined in REQUIREMENTS.md for v2.0)
+(No active requirements — define in next milestone via `/hive:new-milestone`)
 
 ### Out of Scope
 
@@ -50,31 +71,21 @@ Give AI agents a structured, safe path from plan to merged code — so quality s
 - Worker registry and /hive:start-worker — deferred to v2.1+
 - Continuous conflict monitoring (Clash-style) — deferred to v2.1+
 - Dynamic worker assignment — deferred to v2.1+
-
-## Current Milestone: v2.0 Hive Pro Git Flow
-
-**Goal:** Give Hive a professional git workflow — dev branch, plan-level branching, build gates, PR-based integration, and a repo manager — so code flows safely from agents to main.
-
-**Target features:**
-- Atomic file writes with flock for concurrency safety
-- Dev branch creation during project/milestone init
-- Plan-level branching (extends existing branching_strategy)
-- Build command auto-detection and 3-gate validation
-- PR creation and self-merge for single-terminal mode
-- Merge queue and repo manager agent for coordinated merges
-- Git status display in progress output
+- AI-powered conflict resolution — prevention + detection is safer than auto-resolution
+- Entity-level merge (Weave/tree-sitter) — adds native binary dependency, breaks zero-dep
+- Task-level branches — branch explosion; plan-level is correct granularity
 
 ## Context
 
-Shipped v1.0 Hive Recall with ~5,500 lines across 219 files (Node.js, Markdown).
-Tech stack: Pure Node.js stdlib (fs, path, JSON) — zero runtime dependencies.
-v2.0 adds git workflow integration via `gh` CLI and native `git` commands.
-Research completed: `.planning/research/GIT-WORKFLOW-RECOMMENDATIONS.md` — Modified GitHub Flow with plan-level branches, 3 build gates, file-based merge queue.
+Shipped v2.0 with ~6,400 lines in hive-tools.js (both copies), 10,261 new lines total across 45 files.
+Tech stack: Pure Node.js stdlib (fs, path, child_process, os) — zero runtime dependencies.
+Git workflow integration via native `git` and `gh` CLI commands through spawnSync wrapper.
+Two milestones shipped in same day (v1.0 Recall + v2.0 Git Flow).
 
 ## Constraints
 
-- **Zero dependencies**: No npm packages — pure Node.js stdlib (fs, path, JSON)
-- **Backward compatible**: `git.flow: "none"` bypasses all new git features (current behavior preserved)
+- **Zero dependencies**: No npm packages — pure Node.js stdlib (fs, path, child_process, os)
+- **Backward compatible**: `git.flow: "none"` bypasses all git features (current behavior preserved)
 - **`gh` CLI required**: PR operations depend on GitHub CLI being installed
 - **Single-terminal first**: v2.0 targets single-terminal; multi-terminal deferred to v2.1+
 - **File-based coordination**: Merge queue, signals use JSON files (no sockets, no databases)
@@ -88,11 +99,14 @@ Research completed: `.planning/research/GIT-WORKFLOW-RECOMMENDATIONS.md` — Mod
 | JSONL over SQLite | Zero deps, append-only, learned from v1.9.2 removal | ✓ Good — simple, fast, no deps |
 | 3-tier architecture (hooks + workflow + transcript) | Each tier adds context the previous can't see | ✓ Good — 10 + 13 + transcript emit points |
 | events.jsonl gitignored, INSIGHTS.md committed | Privacy for raw data, shareability for insights | ✓ Good — clean separation |
-| Foundation first (v2.0 = Phase 1-2 only) | Ship incremental; single-terminal + repo manager before multi-terminal | — Pending |
-| Build gates always on by default | Safety > convenience; user disables if needed | — Pending |
-| Merge commit (--no-ff) | Preserves per-task commit granularity on dev branch | — Pending |
-| Concurrency locks in this milestone | File locking is prerequisite for safe parallel writes | — Pending |
-| Modified GitHub Flow | Plan-level branches, dev integration branch, PRs to dev | — Pending |
+| Foundation first (single-terminal before multi-terminal) | Ship incremental; prove stability first | ✓ Good — all 28 requirements met in single day |
+| Build gates always on by default | Safety > convenience; user disables if needed | ✓ Good — fail-safe by default, configurable |
+| Merge commit (--no-ff) | Preserves per-task commit granularity on dev branch | ✓ Good — full history preserved |
+| mkdir-based locks (not flock) | Cross-platform compatibility | ✓ Good — works on all OS |
+| Modified GitHub Flow | Plan-level branches, dev integration branch, PRs to dev | ✓ Good — clean isolation per plan |
+| spawnSync over execSync | Structured exit handling without exceptions | ✓ Good — all 11 subcommands return JSON |
+| repo_manager defaults to false | Opt-in only, zero behavior change for existing users | ✓ Good — progressive adoption |
+| Gate 2 always aborts in finally | Crash recovery, never leaves merge state | ✓ Good — fail-safe |
 
 ---
-*Last updated: 2026-02-12 after v2.0 milestone start*
+*Last updated: 2026-02-12 after v2.0 milestone completion*

@@ -20,3 +20,24 @@
 
 ---
 
+
+## v2.0 Hive Pro Git Flow (Shipped: 2026-02-12)
+
+**Delivered:** Professional git workflow — dev branch, plan-level branching, 3-gate build validation, PR-based integration, and a repo manager — so code flows safely from agents to main.
+
+**Stats:** 4 phases (8-11), 10 plans, 19 tasks | 41 commits | 45 files changed | +10,261 lines | ~6 hours
+**Git range:** `8743694` → `8b8400b` on `dev`
+**Requirements:** 28/28 satisfied | Audit: PASSED (40/40 truths, 24/24 integrations, 5/5 flows)
+
+**Key accomplishments:**
+1. Crash-safe file operations — mkdir-based locking and atomic temp+rename writes with execCommand spawnSync wrapper
+2. 11 git subcommands in hive-tools.js — branch lifecycle, build gates, PR management, conflict detection, merge-to-main
+3. Plan-level branching — dev branch on init, isolated hive/phase-{N}-{plan}-{slug} branches, auto-cleanup after merge
+4. 3-gate build validation — Gate 1 (pre-PR), Gate 2 (pre-merge via --no-commit), Gate 3 (pre-main) with fix/skip/stop options
+5. PR creation and self-merge — SUMMARY.md-based PR body with full degradation chain and configurable merge strategy
+6. Repo manager — file-based merge queue, wave-aware ordering, conflict detection via merge-tree, opt-in config flag
+
+**Archives:** `milestones/v2.0-ROADMAP.md`, `milestones/v2.0-REQUIREMENTS.md`, `milestones/v2.0-MILESTONE-AUDIT.md`
+
+---
+
