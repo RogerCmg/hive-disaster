@@ -421,6 +421,139 @@ fi
 ```
 </step>
 
+<step name="build_gate">
+**Pre-PR build validation.** Runs after all tasks completed and committed, before summary creation.
+
+**Check if build gate applies:**
+
+```bash
+GIT_FLOW=$(echo "$CONFIG_CONTENT" | jq -r '.git.flow // "github"')
+PRE_PR_GATE=$(echo "$CONFIG_CONTENT" | jq -r '.git.build_gates.pre_pr // true')
+```
+
+**Skip conditions (any one skips the gate):**
+- `GIT_FLOW` is `"none"` -> Skip: "Git flow disabled. Skipping build gate."
+- `PRE_PR_GATE` is `false` -> Skip: "Pre-PR build gate disabled in config. Skipping."
+
+**Run build gate:**
+
+```bash
+BUILD_RESULT=$(node ./.claude/hive/bin/hive-tools.js git run-build-gate --raw)
+BUILD_SUCCESS=$(echo "$BUILD_RESULT" | jq -r '.success')
+BUILD_SKIPPED=$(echo "$BUILD_RESULT" | jq -r '.skipped // false')
+BUILD_TIMED_OUT=$(echo "$BUILD_RESULT" | jq -r '.timedOut // false')
+BUILD_CMD=$(echo "$BUILD_RESULT" | jq -r '.command // "unknown"')
+BUILD_EXIT_CODE=$(echo "$BUILD_RESULT" | jq -r '.exitCode // "N/A"')
+BUILD_STDERR=$(echo "$BUILD_RESULT" | jq -r '.stderr // ""')
+```
+
+**Handle results:**
+
+| Condition | Action |
+|-----------|--------|
+| `BUILD_SKIPPED` is `"true"` | No build command detected. Log: "No build command detected. Skipping build gate." Set `BUILD_GATE_RESULT="skipped"`. Continue to summary. |
+| `BUILD_SUCCESS` is `"true"` | Build passed. Log: "Build gate passed (command: ${BUILD_CMD})." Set `BUILD_GATE_RESULT="passed"`. Continue to summary. |
+| `BUILD_TIMED_OUT` is `"true"` | Build hung. See timeout handling below. Set `BUILD_GATE_RESULT="timeout"`. |
+| `BUILD_SUCCESS` is `"false"` | Build failed. See failure handling below. Set `BUILD_GATE_RESULT="failed"`. |
+
+**On build timeout:**
+
+**Team mode:**
+```
+SendMessage(type="message", recipient="team-lead",
+  summary="Build gate timed out: ${PLAN_ID}",
+  content="BUILD GATE TIMED OUT
+Plan: ${PHASE}-${PLAN}
+Command: ${BUILD_CMD}
+Timeout: configured in git.build_timeout (default 300s)
+
+The build process was killed after exceeding the configured timeout.
+
+Possible causes:
+- Build command is interactive (requires user input)
+- Build command has an infinite loop or deadlock
+- Timeout is too short for this project
+
+Options:
+1. fix - Investigate and fix the build issue
+2. increase-timeout - Set a higher timeout
+3. skip - Proceed without build validation (note in SUMMARY)
+4. stop - Stop execution, investigate manually")
+```
+
+**Classic mode:**
+```
+## Build Gate Timed Out
+
+**Plan:** ${PHASE}-${PLAN}
+**Command:** ${BUILD_CMD}
+**Timeout:** configured in git.build_timeout (default 300s)
+
+The build process was killed after exceeding the configured timeout.
+
+Possible causes:
+- Build command is interactive (requires user input)
+- Build command has an infinite loop or deadlock
+- Timeout is too short for this project
+
+Options:
+- "fix" - Investigate and fix the build issue
+- "increase-timeout" - Set a higher timeout
+- "skip" - Proceed without build validation
+- "stop" - Stop execution
+```
+
+**On build failure (not timeout):**
+
+**Team mode:**
+```
+SendMessage(type="message", recipient="team-lead",
+  summary="Build gate failed: ${PLAN_ID}",
+  content="BUILD GATE FAILED
+Plan: ${PHASE}-${PLAN}
+Command: ${BUILD_CMD}
+Exit code: ${BUILD_EXIT_CODE}
+
+stderr (truncated):
+${BUILD_STDERR}
+
+Options:
+1. fix - I'll attempt to fix the build issue
+2. skip - Proceed without build validation (note in SUMMARY)
+3. stop - Stop execution, investigate manually")
+```
+
+**Classic mode:**
+```
+## Build Gate Failed
+
+**Plan:** ${PHASE}-${PLAN}
+**Command:** ${BUILD_CMD}
+**Exit code:** ${BUILD_EXIT_CODE}
+
+**Output:**
+${BUILD_STDERR}
+
+Options:
+- "fix" - Attempt to fix the build issue
+- "skip" - Proceed without build validation
+- "stop" - Stop execution
+```
+
+**Handle user response to failure/timeout:**
+
+| Response | Action |
+|----------|--------|
+| "fix" | Investigate the build failure (read error output, check source files). Apply fixes. Commit fix: `fix(${PHASE}-${PLAN}): fix build failure - {description}`. Re-run build gate (loop back to `BUILD_RESULT` command). If passes: continue. If fails again: re-present options. |
+| "increase-timeout" (timeout only) | Ask user for new timeout value. Note: Cannot change config at runtime. Advise user to update `git.build_timeout` in `.planning/config.json` and re-run. Or offer to skip. |
+| "skip" | Set `BUILD_GATE_RESULT="skipped_by_user"`. Continue to summary. The SUMMARY must note: "Build gate skipped by user after failure." |
+| "stop" | Stop execution. Report partial progress. Do NOT create SUMMARY.md. Exit. |
+
+**Record build gate result for SUMMARY:**
+
+Set `BUILD_GATE_RESULT` variable for use in create_summary step. Values: "passed", "skipped", "skipped_by_user", "failed", "timeout".
+</step>
+
 <step name="generate_user_setup">
 ```bash
 grep -A 50 "^user_setup:" .planning/phases/XX-name/{phase}-{plan}-PLAN.md | head -50
@@ -439,6 +572,25 @@ Title: `# Phase [X] Plan [Y]: [Name] Summary`
 One-liner SUBSTANTIVE: "JWT auth with refresh rotation using jose library" not "Authentication implemented"
 
 Include: duration, start/end times, task count, file count.
+
+**Build Gate section (if BUILD_GATE_RESULT is set):**
+
+After the "Issues Encountered" section, add:
+
+```
+## Build Gate
+
+**Result:** ${BUILD_GATE_RESULT}
+**Command:** ${BUILD_CMD}
+
+{If "passed": "Build validation passed."}
+{If "skipped": "No build command detected or git flow disabled."}
+{If "skipped_by_user": "Build gate skipped by user after failure. Build command: ${BUILD_CMD}, Exit code: ${BUILD_EXIT_CODE}"}
+{If "failed": "Build failed. See Issues Encountered."}
+{If "timeout": "Build timed out. See Issues Encountered."}
+```
+
+If BUILD_GATE_RESULT is not set (git flow none, gate disabled): omit the section entirely.
 
 Next: more plans → "Ready for {next-plan}" | last → "Phase complete, ready for transition".
 </step>
