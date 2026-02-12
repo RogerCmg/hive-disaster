@@ -15,7 +15,7 @@ No Pass/Fail buttons. No severity questions. Just: "Here's what should happen. D
 </philosophy>
 
 <template>
-@~/.claude/hive/templates/UAT.md
+@./.claude/hive/templates/UAT.md
 </template>
 
 <process>
@@ -24,7 +24,7 @@ No Pass/Fail buttons. No severity questions. Just: "Here's what should happen. D
 If $ARGUMENTS contains a phase number, load context:
 
 ```bash
-INIT=$(node ~/.claude/hive/bin/hive-tools.js init verify-work "${PHASE_ARG}")
+INIT=$(node ./.claude/hive/bin/hive-tools.js init verify-work "${PHASE_ARG}")
 ```
 
 Parse JSON for: `planner_model`, `checker_model`, `commit_docs`, `phase_found`, `phase_dir`, `phase_number`, `phase_name`, `has_verification`.
@@ -297,7 +297,7 @@ Clear Current Test section:
 
 Commit the UAT file:
 ```bash
-node ~/.claude/hive/bin/hive-tools.js commit "test({phase}): complete UAT - {passed} passed, {issues} issues" --files ".planning/phases/XX-name/{phase}-UAT.md"
+node ./.claude/hive/bin/hive-tools.js commit "test({phase}): complete UAT - {passed} passed, {issues} issues" --files ".planning/phases/XX-name/{phase}-UAT.md"
 ```
 
 Present summary:
@@ -394,7 +394,7 @@ Spawning parallel debug agents to investigate each issue.
 ```
 
 - Load diagnose-issues workflow
-- Follow @~/.claude/hive/workflows/diagnose-issues.md
+- Follow @./.claude/hive/workflows/diagnose-issues.md
 - Spawn parallel debug agents for each issue
 - Collect root causes
 - Update UAT.md with root causes

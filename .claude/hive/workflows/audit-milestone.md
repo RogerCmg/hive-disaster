@@ -11,26 +11,26 @@ Read all files referenced by the invoking prompt's execution_context before star
 ## 0. Initialize Milestone Context
 
 ```bash
-INIT=$(node ~/.claude/hive/bin/hive-tools.js init milestone-op)
+INIT=$(node ./.claude/hive/bin/hive-tools.js init milestone-op)
 ```
 
 Extract from init JSON: `milestone_version`, `milestone_name`, `phase_count`, `completed_phases`, `commit_docs`.
 
 Extract recall context for agent prompts (milestone-op does not include recall_context, use phase-op as proxy):
 ```bash
-RECALL=$(node ~/.claude/hive/bin/hive-tools.js init phase-op 1 2>/dev/null | jq -r '.recall_context // empty')
+RECALL=$(node ./.claude/hive/bin/hive-tools.js init phase-op 1 2>/dev/null | jq -r '.recall_context // empty')
 ```
 
 Resolve integration checker model:
 ```bash
-CHECKER_MODEL=$(node ~/.claude/hive/bin/hive-tools.js resolve-model hive-integration-checker --raw)
+CHECKER_MODEL=$(node ./.claude/hive/bin/hive-tools.js resolve-model hive-integration-checker --raw)
 ```
 
 ## 1. Determine Milestone Scope
 
 ```bash
 # Get phases in milestone (sorted numerically, handles decimals)
-node ~/.claude/hive/bin/hive-tools.js phases list
+node ./.claude/hive/bin/hive-tools.js phases list
 ```
 
 - Parse version from arguments or detect current from ROADMAP.md

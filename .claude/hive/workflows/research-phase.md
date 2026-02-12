@@ -8,17 +8,17 @@ Standalone research command. For most workflows, use `/hive:plan-phase` which in
 
 ## Step 0: Resolve Model Profile
 
-@~/.claude/hive/references/model-profile-resolution.md
+@./.claude/hive/references/model-profile-resolution.md
 
 Resolve model for:
 - `hive-phase-researcher`
 
 ## Step 1: Normalize and Validate Phase
 
-@~/.claude/hive/references/phase-argument-parsing.md
+@./.claude/hive/references/phase-argument-parsing.md
 
 ```bash
-PHASE_INFO=$(node ~/.claude/hive/bin/hive-tools.js roadmap get-phase "${PHASE}")
+PHASE_INFO=$(node ./.claude/hive/bin/hive-tools.js roadmap get-phase "${PHASE}")
 ```
 
 If `found` is false: Error and exit.
@@ -39,12 +39,12 @@ echo "$PHASE_INFO" | jq -r '.section'
 cat .planning/REQUIREMENTS.md 2>/dev/null
 cat .planning/phases/${PHASE}-*/*-CONTEXT.md 2>/dev/null
 # Decisions from state-snapshot (structured JSON)
-node ~/.claude/hive/bin/hive-tools.js state-snapshot | jq '.decisions'
+node ./.claude/hive/bin/hive-tools.js state-snapshot | jq '.decisions'
 ```
 
 Extract recall context for agent prompts:
 ```bash
-RECALL=$(node ~/.claude/hive/bin/hive-tools.js init phase-op "${PHASE}" 2>/dev/null | jq -r '.recall_context // empty')
+RECALL=$(node ./.claude/hive/bin/hive-tools.js init phase-op "${PHASE}" 2>/dev/null | jq -r '.recall_context // empty')
 ```
 
 ## Step 4: Spawn Researcher

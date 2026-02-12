@@ -26,7 +26,7 @@ Documents are reference material for Claude when planning/executing. Always incl
 Load codebase mapping context:
 
 ```bash
-INIT=$(node ~/.claude/hive/bin/hive-tools.js init map-codebase)
+INIT=$(node ./.claude/hive/bin/hive-tools.js init map-codebase)
 ```
 
 Extract from init JSON: `mapper_model`, `commit_docs`, `codebase_dir`, `existing_maps`, `has_maps`, `codebase_dir_exists`.
@@ -394,7 +394,7 @@ No cleanup needed — Task agents terminate on completion.
 Commit the codebase map:
 
 ```bash
-node ~/.claude/hive/bin/hive-tools.js commit "docs: map existing codebase" --files .planning/codebase/*.md
+node ./.claude/hive/bin/hive-tools.js commit "docs: map existing codebase" --files .planning/codebase/*.md
 ```
 
 Continue to offer_next.

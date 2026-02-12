@@ -40,7 +40,7 @@ The document should describe what you want to build.
 **MANDATORY FIRST STEP — Execute these checks before ANY user interaction:**
 
 ```bash
-INIT=$(node ~/.claude/hive/bin/hive-tools.js init new-project)
+INIT=$(node ./.claude/hive/bin/hive-tools.js init new-project)
 ```
 
 Parse JSON for: `researcher_model`, `synthesizer_model`, `roadmapper_model`, `commit_docs`, `project_exists`, `has_codebase_map`, `planning_exists`, `has_existing_code`, `has_package_file`, `is_brownfield`, `needs_codebase_map`, `has_git`.
@@ -217,7 +217,7 @@ Do not compress. Capture everything gathered.
 
 ```bash
 mkdir -p .planning
-node ~/.claude/hive/bin/hive-tools.js commit "docs: initialize project" --files .planning/PROJECT.md
+node ./.claude/hive/bin/hive-tools.js commit "docs: initialize project" --files .planning/PROJECT.md
 ```
 
 ## 5. Workflow Preferences
@@ -347,7 +347,7 @@ Create `.planning/config.json` with all settings:
 **Commit config.json:**
 
 ```bash
-node ~/.claude/hive/bin/hive-tools.js commit "chore: add project config" --files .planning/config.json
+node ./.claude/hive/bin/hive-tools.js commit "chore: add project config" --files .planning/config.json
 ```
 
 **Note:** Run `/hive:settings` anytime to update these preferences.
@@ -427,7 +427,7 @@ Display spawning indicator:
 Spawn researchers as teammates:
 
 ```
-Task(prompt="First, read ~/.claude/agents/hive-project-researcher.md for your role and instructions.
+Task(prompt="First, read ./.claude/agents/hive-project-researcher.md for your role and instructions.
 
 <research_type>
 Project Research — Stack dimension for [domain].
@@ -471,7 +471,7 @@ Your STACK.md feeds into roadmap creation. Be prescriptive:
 
 <output>
 Write to: .planning/research/STACK.md
-Use template: ~/.claude/hive/templates/research-project/STACK.md
+Use template: ./.claude/hive/templates/research-project/STACK.md
 </output>
 
 {If RECALL is non-empty, include this block:}
@@ -483,7 +483,7 @@ Use these patterns to avoid known issues and follow proven approaches.
 </recall>
 ", subagent_type="general-purpose", model="{researcher_model}", team_name="{RESEARCH_TEAM_NAME}", name="stack-researcher", description="Stack research")
 
-Task(prompt="First, read ~/.claude/agents/hive-project-researcher.md for your role and instructions.
+Task(prompt="First, read ./.claude/agents/hive-project-researcher.md for your role and instructions.
 
 <research_type>
 Project Research — Features dimension for [domain].
@@ -527,7 +527,7 @@ Your FEATURES.md feeds into requirements definition. Categorize clearly:
 
 <output>
 Write to: .planning/research/FEATURES.md
-Use template: ~/.claude/hive/templates/research-project/FEATURES.md
+Use template: ./.claude/hive/templates/research-project/FEATURES.md
 </output>
 
 {If RECALL is non-empty, include this block:}
@@ -539,7 +539,7 @@ Use these patterns to avoid known issues and follow proven approaches.
 </recall>
 ", subagent_type="general-purpose", model="{researcher_model}", team_name="{RESEARCH_TEAM_NAME}", name="features-researcher", description="Features research")
 
-Task(prompt="First, read ~/.claude/agents/hive-project-researcher.md for your role and instructions.
+Task(prompt="First, read ./.claude/agents/hive-project-researcher.md for your role and instructions.
 
 <research_type>
 Project Research — Architecture dimension for [domain].
@@ -586,7 +586,7 @@ Your ARCHITECTURE.md informs phase structure in roadmap. Include:
 
 <output>
 Write to: .planning/research/ARCHITECTURE.md
-Use template: ~/.claude/hive/templates/research-project/ARCHITECTURE.md
+Use template: ./.claude/hive/templates/research-project/ARCHITECTURE.md
 </output>
 
 {If RECALL is non-empty, include this block:}
@@ -598,7 +598,7 @@ Use these patterns to avoid known issues and follow proven approaches.
 </recall>
 ", subagent_type="general-purpose", model="{researcher_model}", team_name="{RESEARCH_TEAM_NAME}", name="arch-researcher", description="Architecture research")
 
-Task(prompt="First, read ~/.claude/agents/hive-project-researcher.md for your role and instructions.
+Task(prompt="First, read ./.claude/agents/hive-project-researcher.md for your role and instructions.
 
 <research_type>
 Project Research — Pitfalls dimension for [domain].
@@ -645,7 +645,7 @@ Your PITFALLS.md prevents mistakes in roadmap/planning. For each pitfall:
 
 <output>
 Write to: .planning/research/PITFALLS.md
-Use template: ~/.claude/hive/templates/research-project/PITFALLS.md
+Use template: ./.claude/hive/templates/research-project/PITFALLS.md
 </output>
 
 {If RECALL is non-empty, include this block:}
@@ -699,7 +699,7 @@ Read these files:
 
 <output>
 Write to: .planning/research/SUMMARY.md
-Use template: ~/.claude/hive/templates/research-project/SUMMARY.md
+Use template: ./.claude/hive/templates/research-project/SUMMARY.md
 Commit after writing.
 </output>
 
@@ -741,7 +741,7 @@ Display spawning indicator:
 Spawn 4 parallel hive-project-researcher agents with rich context:
 
 ```
-Task(prompt="First, read ~/.claude/agents/hive-project-researcher.md for your role and instructions.
+Task(prompt="First, read ./.claude/agents/hive-project-researcher.md for your role and instructions.
 
 <research_type>
 Project Research — Stack dimension for [domain].
@@ -777,7 +777,7 @@ Your STACK.md feeds into roadmap creation. Be prescriptive:
 
 <output>
 Write to: .planning/research/STACK.md
-Use template: ~/.claude/hive/templates/research-project/STACK.md
+Use template: ./.claude/hive/templates/research-project/STACK.md
 </output>
 
 {If RECALL is non-empty, include this block:}
@@ -789,7 +789,7 @@ Use these patterns to avoid known issues and follow proven approaches.
 </recall>
 ", subagent_type="general-purpose", model="{researcher_model}", description="Stack research")
 
-Task(prompt="First, read ~/.claude/agents/hive-project-researcher.md for your role and instructions.
+Task(prompt="First, read ./.claude/agents/hive-project-researcher.md for your role and instructions.
 
 <research_type>
 Project Research — Features dimension for [domain].
@@ -825,7 +825,7 @@ Your FEATURES.md feeds into requirements definition. Categorize clearly:
 
 <output>
 Write to: .planning/research/FEATURES.md
-Use template: ~/.claude/hive/templates/research-project/FEATURES.md
+Use template: ./.claude/hive/templates/research-project/FEATURES.md
 </output>
 
 {If RECALL is non-empty, include this block:}
@@ -837,7 +837,7 @@ Use these patterns to avoid known issues and follow proven approaches.
 </recall>
 ", subagent_type="general-purpose", model="{researcher_model}", description="Features research")
 
-Task(prompt="First, read ~/.claude/agents/hive-project-researcher.md for your role and instructions.
+Task(prompt="First, read ./.claude/agents/hive-project-researcher.md for your role and instructions.
 
 <research_type>
 Project Research — Architecture dimension for [domain].
@@ -873,7 +873,7 @@ Your ARCHITECTURE.md informs phase structure in roadmap. Include:
 
 <output>
 Write to: .planning/research/ARCHITECTURE.md
-Use template: ~/.claude/hive/templates/research-project/ARCHITECTURE.md
+Use template: ./.claude/hive/templates/research-project/ARCHITECTURE.md
 </output>
 
 {If RECALL is non-empty, include this block:}
@@ -885,7 +885,7 @@ Use these patterns to avoid known issues and follow proven approaches.
 </recall>
 ", subagent_type="general-purpose", model="{researcher_model}", description="Architecture research")
 
-Task(prompt="First, read ~/.claude/agents/hive-project-researcher.md for your role and instructions.
+Task(prompt="First, read ./.claude/agents/hive-project-researcher.md for your role and instructions.
 
 <research_type>
 Project Research — Pitfalls dimension for [domain].
@@ -921,7 +921,7 @@ Your PITFALLS.md prevents mistakes in roadmap/planning. For each pitfall:
 
 <output>
 Write to: .planning/research/PITFALLS.md
-Use template: ~/.claude/hive/templates/research-project/PITFALLS.md
+Use template: ./.claude/hive/templates/research-project/PITFALLS.md
 </output>
 
 {If RECALL is non-empty, include this block:}
@@ -952,7 +952,7 @@ Read these files:
 
 <output>
 Write to: .planning/research/SUMMARY.md
-Use template: ~/.claude/hive/templates/research-project/SUMMARY.md
+Use template: ./.claude/hive/templates/research-project/SUMMARY.md
 Commit after writing.
 </output>
 
@@ -1126,7 +1126,7 @@ If "adjust": Return to scoping.
 **Commit requirements:**
 
 ```bash
-node ~/.claude/hive/bin/hive-tools.js commit "docs: define v1 requirements" --files .planning/REQUIREMENTS.md
+node ./.claude/hive/bin/hive-tools.js commit "docs: define v1 requirements" --files .planning/REQUIREMENTS.md
 ```
 
 ## 8. Create Roadmap
@@ -1275,7 +1275,7 @@ Use AskUserQuestion:
 **Commit roadmap (after approval or auto mode):**
 
 ```bash
-node ~/.claude/hive/bin/hive-tools.js commit "docs: create roadmap ([N] phases)" --files .planning/ROADMAP.md .planning/STATE.md .planning/REQUIREMENTS.md
+node ./.claude/hive/bin/hive-tools.js commit "docs: create roadmap ([N] phases)" --files .planning/ROADMAP.md .planning/STATE.md .planning/REQUIREMENTS.md
 ```
 
 ## 9. Done
