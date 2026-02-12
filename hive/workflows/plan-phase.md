@@ -20,6 +20,11 @@ INIT=$(node ~/.claude/hive/bin/hive-tools.js init plan-phase "$PHASE" --include 
 
 Parse JSON for: `researcher_model`, `planner_model`, `checker_model`, `research_enabled`, `plan_checker_enabled`, `commit_docs`, `phase_found`, `phase_dir`, `phase_number`, `phase_name`, `phase_slug`, `padded_phase`, `has_research`, `has_context`, `has_plans`, `plan_count`, `planning_exists`, `roadmap_exists`.
 
+Extract recall context for agent prompts:
+```bash
+RECALL=$(echo "$INIT" | jq -r '.recall_context // empty')
+```
+
 **File contents (from --include):** `state_content`, `roadmap_content`, `requirements_content`, `context_content`, `research_content`, `verification_content`, `uat_content`. These are null if files don't exist.
 
 **If `planning_exists` is false:** Error — run `/hive:new-project` first.
@@ -106,6 +111,14 @@ IMPORTANT: If CONTEXT.md exists below, it contains user decisions from /hive:dis
 <output>
 Write to: {phase_dir}/{phase}-RESEARCH.md
 </output>
+
+{If RECALL is non-empty, include this block:}
+
+<recall>
+Past project patterns from telemetry:
+{RECALL}
+Use these patterns to avoid known issues and follow proven approaches.
+</recall>
 ```
 
 ```
@@ -218,6 +231,14 @@ Output consumed by /hive:execute-phase. Plans need:
 - [ ] Waves assigned for parallel execution
 - [ ] must_haves derived from phase goal
 </quality_gate>
+
+{If RECALL is non-empty, include this block:}
+
+<recall>
+Past project patterns from telemetry:
+{RECALL}
+Use these patterns to avoid known issues and follow proven approaches.
+</recall>
 ```
 
 <team_mode>
@@ -321,6 +342,14 @@ IMPORTANT: Plans MUST honor user decisions. Flag as issue if plans contradict.
 - ## VERIFICATION PASSED — all checks pass
 - ## ISSUES FOUND — structured issue list
 </expected_output>
+
+{If RECALL is non-empty, include this block:}
+
+<recall>
+Past project patterns from telemetry:
+{RECALL}
+Use these patterns to avoid known issues and follow proven approaches.
+</recall>
 ```
 
 <team_mode>
@@ -470,6 +499,14 @@ Make targeted updates to address checker issues.
 Do NOT replan from scratch unless issues are fundamental.
 Return what changed.
 </instructions>
+
+{If RECALL is non-empty, include this block:}
+
+<recall>
+Past project patterns from telemetry:
+{RECALL}
+Use these patterns to avoid known issues and follow proven approaches.
+</recall>
 ```
 
 ```

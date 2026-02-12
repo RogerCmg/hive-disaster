@@ -16,7 +16,7 @@ Read STATE.md before any operation to load project context.
 Load all context in one call:
 
 ```bash
-INIT=$(node ~/.claude/hive/bin/hive-tools.js init execute-phase "${PHASE_ARG}")
+INIT=$(node ./.claude/hive/bin/hive-tools.js init execute-phase "${PHASE_ARG}")
 ```
 
 Parse JSON for: `executor_model`, `verifier_model`, `commit_docs`, `parallelization`, `branching_strategy`, `branch_name`, `phase_found`, `phase_dir`, `phase_number`, `phase_name`, `phase_slug`, `plans`, `incomplete_plans`, `plan_count`, `incomplete_count`, `state_exists`, `roadmap_exists`.
@@ -103,7 +103,7 @@ Report: "Found {plan_count} plans in {phase_dir} ({incomplete_count} incomplete)
 Load plan inventory with wave grouping in one call:
 
 ```bash
-PLAN_INDEX=$(node ~/.claude/hive/bin/hive-tools.js phase-plan-index "${PHASE_NUMBER}")
+PLAN_INDEX=$(node ./.claude/hive/bin/hive-tools.js phase-plan-index "${PHASE_NUMBER}")
 ```
 
 Parse JSON for: `phase`, `plans[]` (each with `id`, `wave`, `autonomous`, `objective`, `files_modified`, `task_count`, `has_summary`), `waves` (map of wave number → plan IDs), `incomplete`, `has_checkpoints`.
@@ -174,10 +174,10 @@ Execute each wave. Within a wave: parallel if `PARALLELIZATION=true`, sequential
        </team_protocol>
 
        <execution_context>
-       @~/.claude/hive/workflows/execute-plan.md
-       @~/.claude/hive/templates/summary.md
-       @~/.claude/hive/references/checkpoints.md
-       @~/.claude/hive/references/tdd.md
+       @./.claude/hive/workflows/execute-plan.md
+       @./.claude/hive/templates/summary.md
+       @./.claude/hive/references/checkpoints.md
+       @./.claude/hive/references/tdd.md
        </execution_context>
 
        <files_to_read>
@@ -294,7 +294,7 @@ Execute each wave. Within a wave: parallel if `PARALLELIZATION=true`, sequential
       ```
    d2. Emit the checkpoint resolution event for Recall:
       ```bash
-      node ~/.claude/hive/bin/hive-tools.js telemetry emit checkpoint \
+      node ./.claude/hive/bin/hive-tools.js telemetry emit checkpoint \
         --data "{\"phase\":\"${PHASE_NUMBER}\",\"plan\":\"${PLAN_ID}\",\"checkpoint_type\":\"${CHECKPOINT_TYPE}\",\"user_response\":\"${USER_RESPONSE}\",\"outcome\":\"${OUTCOME}\"}"
       ```
    e. Executor wakes up with full context, continues execution
@@ -447,10 +447,10 @@ checkpoint_handling step for checkpoints, continuation agents for resumption.
        </objective>
 
        <execution_context>
-       @~/.claude/hive/workflows/execute-plan.md
-       @~/.claude/hive/templates/summary.md
-       @~/.claude/hive/references/checkpoints.md
-       @~/.claude/hive/references/tdd.md
+       @./.claude/hive/workflows/execute-plan.md
+       @./.claude/hive/templates/summary.md
+       @./.claude/hive/references/checkpoints.md
+       @./.claude/hive/references/tdd.md
        </execution_context>
 
        <files_to_read>
@@ -603,7 +603,7 @@ where the entire wave blocks on checkpoint resolution.
 5. User responds: "approved"/"done" | issue description | decision selection
 5b. Emit the checkpoint resolution event for Recall:
    ```bash
-   node ~/.claude/hive/bin/hive-tools.js telemetry emit checkpoint \
+   node ./.claude/hive/bin/hive-tools.js telemetry emit checkpoint \
      --data "{\"phase\":\"${PHASE_NUMBER}\",\"plan\":\"${PLAN_ID}\",\"checkpoint_type\":\"${CHECKPOINT_TYPE}\",\"user_response\":\"${USER_RESPONSE}\",\"outcome\":\"${OUTCOME}\"}"
    ```
 6. **Spawn continuation agent (NOT resume)** using continuation-prompt.md template:
@@ -827,7 +827,7 @@ Gap closure cycle: `/hive:plan-phase {X} --gaps` reads VERIFICATION.md → creat
 Mark phase complete in ROADMAP.md (date, status).
 
 ```bash
-node ~/.claude/hive/bin/hive-tools.js commit "docs(phase-{X}): complete phase execution" --files .planning/ROADMAP.md .planning/STATE.md .planning/phases/{phase_dir}/*-VERIFICATION.md .planning/REQUIREMENTS.md
+node ./.claude/hive/bin/hive-tools.js commit "docs(phase-{X}): complete phase execution" --files .planning/ROADMAP.md .planning/STATE.md .planning/phases/{phase_dir}/*-VERIFICATION.md .planning/REQUIREMENTS.md
 ```
 </step>
 

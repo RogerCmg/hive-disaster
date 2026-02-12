@@ -28,7 +28,7 @@ If empty, re-prompt: "Please provide a task description."
 **Step 2: Initialize**
 
 ```bash
-INIT=$(node ~/.claude/hive/bin/hive-tools.js init quick "$DESCRIPTION")
+INIT=$(node ./.claude/hive/bin/hive-tools.js init quick "$DESCRIPTION")
 ```
 
 Parse JSON for: `planner_model`, `executor_model`, `commit_docs`, `next_num`, `slug`, `date`, `timestamp`, `quick_dir`, `task_dir`, `roadmap_exists`, `planning_exists`.
@@ -212,7 +212,7 @@ Use Edit tool to make these changes atomically
 Stage and commit quick task artifacts:
 
 ```bash
-node ~/.claude/hive/bin/hive-tools.js commit "docs(quick-${next_num}): ${DESCRIPTION}" --files ${QUICK_DIR}/${next_num}-PLAN.md ${QUICK_DIR}/${next_num}-SUMMARY.md .planning/STATE.md
+node ./.claude/hive/bin/hive-tools.js commit "docs(quick-${next_num}): ${DESCRIPTION}" --files ${QUICK_DIR}/${next_num}-PLAN.md ${QUICK_DIR}/${next_num}-SUMMARY.md .planning/STATE.md
 ```
 
 Get final commit hash:
