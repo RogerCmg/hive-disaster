@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Copy GSD hooks to dist for installation.
+ * Copy Hive hooks to dist for installation.
  */
 
 const fs = require('fs');
@@ -11,8 +11,12 @@ const DIST_DIR = path.join(HOOKS_DIR, 'dist');
 
 // Hooks to copy (pure Node.js, no bundling needed)
 const HOOKS_TO_COPY = [
-  'gsd-check-update.js',
-  'gsd-statusline.js'
+  'hive-check-update.js',
+  'hive-statusline.js',
+  'hive-recall-agent.js',
+  'hive-recall-error.js',
+  'hive-recall-compact.js',
+  'hive-recall-session.js'
 ];
 
 function build() {

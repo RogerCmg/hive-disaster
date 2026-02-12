@@ -1,0 +1,25 @@
+{
+  "model_profile": "quality",
+  "commit_docs": true,
+  "search_gitignored": false,
+  "branching_strategy": "milestone",
+  "phase_branch_template": "hive/phase-{phase}-{slug}",
+  "milestone_branch_template": "hive/{milestone}-{slug}",
+  "workflow": {
+    "research": true,
+    "plan_check": true,
+    "verifier": true
+  },
+  "parallelization": true,
+  "brave_search": false,
+  "teams": {
+    "execution_team": true,
+    "planning_team": true,
+    "research_team": true,
+    "diagnosis_team": true,
+    "qa_team": "auto",
+    "audit_team": true,
+    "mapper_team": true
+  },
+  "dynamic_scheduling": true
+}
