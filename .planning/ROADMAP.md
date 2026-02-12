@@ -48,11 +48,11 @@ Plans:
   3. When context compaction fires, a `context_compaction` event is recorded; when a session starts or ends, `session_boundary` events are recorded
   4. A hook failure (malformed input, disk error) is silently swallowed and does not interrupt the running workflow or agent
   5. Non-Hive agents and tools are ignored -- only events from Hive-prefixed agents generate telemetry
-**Plans**: TBD
+**Plans:** 2 plans
 
 Plans:
-- [ ] 02-01: Hook scaffolding and SubagentStop observer (HOOK-01, HOOK-06, HOOK-07)
-- [ ] 02-02: Error, compaction, and session hooks (HOOK-02, HOOK-03, HOOK-04, HOOK-05)
+- [ ] 02-01-PLAN.md -- SubagentStop hook, VALID_EVENT_TYPES update, hook registration, build script (HOOK-01, HOOK-06, HOOK-07)
+- [ ] 02-02-PLAN.md -- PostToolUseFailure, PreCompact, and SessionStart/End hooks (HOOK-02, HOOK-03, HOOK-04, HOOK-05)
 
 ### Phase 3: Workflow Integration
 **Goal**: Semantic events that hooks cannot see -- deviations, checkpoints, verification gaps, plan revisions, and user corrections -- are captured at workflow decision points
