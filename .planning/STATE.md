@@ -10,11 +10,11 @@ See: .planning/PROJECT.md (updated 2026-02-12)
 ## Current Position
 
 Phase: 8 of 11 (Safety & Configuration)
-Plan: 1 of 2 complete in current phase
-Status: Executing phase
-Last activity: 2026-02-12 — Completed 08-01 (safety primitives, detection commands, config extension)
+Plan: 2 of 2 complete in current phase
+Status: Phase complete
+Last activity: 2026-02-12 — Completed 08-02 (git subcommands, flow bypass, build gates)
 
-Progress: [█░░░░░░░░░] 5%
+Progress: [██░░░░░░░░] 10%
 
 ## Performance Metrics
 
@@ -28,10 +28,11 @@ Progress: [█░░░░░░░░░] 5%
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
 | 1-7 (v1.0) | 14 | ~7h | ~30m |
-| 8 (v2.0) | 1 | 4m | 4m |
+| 8 (v2.0) | 2 | 9m | 4.5m |
 
 **Recent Trend:**
 - 08-01: 4min, 2 tasks, 4 files
+- 08-02: 5min, 2 tasks, 2 files
 - Trend: Stable
 
 *Updated after each plan completion*
@@ -50,6 +51,9 @@ Recent decisions affecting current work:
 - spawnSync (not execSync) for git/gh commands — structured exit handling
 - Same-directory temp+rename for atomic writes — cross-filesystem rename breaks atomicity
 - npm default placeholder detection prevents false positives on fresh projects
+- current-branch exempt from flow bypass (informational, not workflow action)
+- Protected branch list includes configured dev_branch dynamically
+- merge-tree preferred for conflict detection on git >= 2.38, dry-run fallback for older
 
 ### Pending Todos
 
@@ -62,5 +66,5 @@ None.
 ## Session Continuity
 
 **Last session:** 2026-02-12
-**Stopped at:** Completed 08-01-PLAN.md (safety primitives + detection commands)
-**Resume file:** .planning/phases/08-safety-configuration/08-02-PLAN.md
+**Stopped at:** Completed 08-02-PLAN.md (git subcommands + flow bypass + build gates)
+**Resume file:** Phase 8 complete. Next: Phase 9
