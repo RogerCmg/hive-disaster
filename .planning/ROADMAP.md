@@ -18,7 +18,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 4: Feedback Loop** - Digest generation, insight injection into agent context, /hive:insights command
 - [x] **Phase 5: Installation Integration** - Hook registration and config setup during npx hive-cc install
 - [x] **Phase 6: Transcript Analysis** - Deep post-hoc session analysis agent and cross-session pattern detection
-- [ ] **Phase 7: Close Integration Gaps** - Wire session_summary into digest, add recall to execute-plan, sync requirement checkboxes
+- [x] **Phase 7: Close Integration Gaps** - Wire session_summary into digest, add recall to execute-plan, sync requirement checkboxes
 
 ## Phase Details
 
@@ -126,12 +126,12 @@ Plans:
 **Plans:** 1 plan
 
 Plans:
-- [ ] 07-01-PLAN.md -- Wire session_summary into digest, add recall to execute-plan, sync checkboxes
+- [x] 07-01-PLAN.md -- Wire session_summary into digest, add recall to execute-plan, sync checkboxes
 
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6
+Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
@@ -141,7 +141,7 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6
 | 4. Feedback Loop | 3/3 | Complete ✓ | 2026-02-12 |
 | 5. Installation Integration | 1/1 | Complete ✓ | 2026-02-12 |
 | 6. Transcript Analysis | 2/2 | Complete ✓ | 2026-02-12 |
-| 7. Close Integration Gaps | 0/1 | Pending | — |
+| 7. Close Integration Gaps | 1/1 | Complete ✓ | 2026-02-12 |
 
 ---
 *Roadmap created: 2026-02-11*
