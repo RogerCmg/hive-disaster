@@ -5,7 +5,7 @@ Create executable phase prompts (PLAN.md files) for a roadmap phase with integra
 <required_reading>
 Read all files referenced by the invoking prompt's execution_context before starting.
 
-@~/.claude/hive/references/ui-brand.md
+@./.claude/hive/references/ui-brand.md
 </required_reading>
 
 <process>
@@ -15,7 +15,7 @@ Read all files referenced by the invoking prompt's execution_context before star
 Load all context in one call (include file contents to avoid redundant reads):
 
 ```bash
-INIT=$(node ~/.claude/hive/bin/hive-tools.js init plan-phase "$PHASE" --include state,roadmap,requirements,context,research,verification,uat)
+INIT=$(node ./.claude/hive/bin/hive-tools.js init plan-phase "$PHASE" --include state,roadmap,requirements,context,research,verification,uat)
 ```
 
 Parse JSON for: `researcher_model`, `planner_model`, `checker_model`, `research_enabled`, `plan_checker_enabled`, `commit_docs`, `phase_found`, `phase_dir`, `phase_number`, `phase_name`, `phase_slug`, `padded_phase`, `has_research`, `has_context`, `has_plans`, `plan_count`, `planning_exists`, `roadmap_exists`.
@@ -40,7 +40,7 @@ mkdir -p ".planning/phases/${padded_phase}-${phase_slug}"
 ## 3. Validate Phase
 
 ```bash
-PHASE_INFO=$(node ~/.claude/hive/bin/hive-tools.js roadmap get-phase "${PHASE}")
+PHASE_INFO=$(node ./.claude/hive/bin/hive-tools.js roadmap get-phase "${PHASE}")
 ```
 
 **If `found` is false:** Error with available phases. **If `found` is true:** Extract `phase_number`, `phase_name`, `goal` from JSON.
@@ -73,10 +73,10 @@ Display banner:
 ### Spawn hive-phase-researcher
 
 ```bash
-PHASE_DESC=$(node ~/.claude/hive/bin/hive-tools.js roadmap get-phase "${PHASE}" | jq -r '.section')
+PHASE_DESC=$(node ./.claude/hive/bin/hive-tools.js roadmap get-phase "${PHASE}" | jq -r '.section')
 # Use requirements_content from INIT (already loaded via --include requirements)
 REQUIREMENTS=$(echo "$INIT" | jq -r '.requirements_content // empty' | grep -A100 "## Requirements" | head -50)
-STATE_SNAP=$(node ~/.claude/hive/bin/hive-tools.js state-snapshot)
+STATE_SNAP=$(node ./.claude/hive/bin/hive-tools.js state-snapshot)
 # Extract decisions from state-snapshot JSON: jq '.decisions[] | "\(.phase): \(.summary) - \(.rationale)"'
 ```
 
@@ -110,7 +110,7 @@ Write to: {phase_dir}/{phase}-RESEARCH.md
 
 ```
 Task(
-  prompt="First, read ~/.claude/agents/hive-phase-researcher.md for your role and instructions.\n\n" + research_prompt,
+  prompt="First, read ./.claude/agents/hive-phase-researcher.md for your role and instructions.\n\n" + research_prompt,
   subagent_type="general-purpose",
   model="{researcher_model}",
   description="Research Phase {phase}"
@@ -226,7 +226,7 @@ Output consumed by /hive:execute-phase. Plans need:
 Spawn planner as teammate:
 ```
 Task(
-  prompt="First, read ~/.claude/agents/hive-planner.md for your role and instructions.\n\n" + filled_prompt,
+  prompt="First, read ./.claude/agents/hive-planner.md for your role and instructions.\n\n" + filled_prompt,
   subagent_type="general-purpose",
   model="{planner_model}",
   description="Plan Phase {phase}",
@@ -246,7 +246,7 @@ Monitor for planner messages. The planner will send one of:
 
 ```
 Task(
-  prompt="First, read ~/.claude/agents/hive-planner.md for your role and instructions.\n\n" + filled_prompt,
+  prompt="First, read ./.claude/agents/hive-planner.md for your role and instructions.\n\n" + filled_prompt,
   subagent_type="general-purpose",
   model="{planner_model}",
   description="Plan Phase {phase}"
@@ -403,7 +403,7 @@ Wait for planner response. Expect `REVISION COMPLETE:` message.
 After receiving the revision, emit a plan_revision event for Recall:
 
 ```bash
-node ~/.claude/hive/bin/hive-tools.js telemetry emit plan_revision \
+node ./.claude/hive/bin/hive-tools.js telemetry emit plan_revision \
   --data "{\"phase\":\"${PHASE_NUMBER}\",\"round\":${ITERATION_COUNT},\"changes_summary\":\"${PLANNER_CHANGES_SUMMARY}\",\"reason\":\"Checker found issues\"}"
 ```
 
@@ -432,7 +432,7 @@ Offer: 1) Force proceed, 2) Provide guidance and retry, 3) Abandon
 After user responds, emit a user_correction event for Recall:
 
 ```bash
-node ~/.claude/hive/bin/hive-tools.js telemetry emit user_correction \
+node ./.claude/hive/bin/hive-tools.js telemetry emit user_correction \
   --data "{\"phase\":\"${PHASE_NUMBER}\",\"plan\":\"\",\"what_changed\":\"max-iteration-guidance\",\"user_intent\":\"${USER_CHOICE}\"}"
 ```
 
@@ -474,7 +474,7 @@ Return what changed.
 
 ```
 Task(
-  prompt="First, read ~/.claude/agents/hive-planner.md for your role and instructions.\n\n" + revision_prompt,
+  prompt="First, read ./.claude/agents/hive-planner.md for your role and instructions.\n\n" + revision_prompt,
   subagent_type="general-purpose",
   model="{planner_model}",
   description="Revise Phase {phase} plans"
@@ -484,7 +484,7 @@ Task(
 After planner returns revised plans, emit a plan_revision event for Recall:
 
 ```bash
-node ~/.claude/hive/bin/hive-tools.js telemetry emit plan_revision \
+node ./.claude/hive/bin/hive-tools.js telemetry emit plan_revision \
   --data "{\"phase\":\"${PHASE_NUMBER}\",\"round\":${ITERATION_COUNT},\"changes_summary\":\"${PLANNER_CHANGES_SUMMARY}\",\"reason\":\"Checker found issues\"}"
 ```
 
@@ -499,7 +499,7 @@ Offer: 1) Force proceed, 2) Provide guidance and retry, 3) Abandon
 After user responds, emit a user_correction event for Recall:
 
 ```bash
-node ~/.claude/hive/bin/hive-tools.js telemetry emit user_correction \
+node ./.claude/hive/bin/hive-tools.js telemetry emit user_correction \
   --data "{\"phase\":\"${PHASE_NUMBER}\",\"plan\":\"\",\"what_changed\":\"max-iteration-guidance\",\"user_intent\":\"${USER_CHOICE}\"}"
 ```
 
