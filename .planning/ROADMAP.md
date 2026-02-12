@@ -16,7 +16,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 2: Hook Observers** - Passive automatic capture of agent lifecycle events
 - [x] **Phase 3: Workflow Integration** - Semantic event capture at workflow decision points
 - [x] **Phase 4: Feedback Loop** - Digest generation, insight injection into agent context, /hive:insights command
-- [ ] **Phase 5: Installation Integration** - Hook registration and config setup during npx hive-cc install
+- [x] **Phase 5: Installation Integration** - Hook registration and config setup during npx hive-cc install
 - [ ] **Phase 6: Transcript Analysis** - Deep post-hoc session analysis agent and cross-session pattern detection
 
 ## Phase Details
@@ -96,7 +96,7 @@ Plans:
 **Plans:** 1 plan
 
 Plans:
-- [ ] 05-01-PLAN.md -- Hook registration in settings.json, uninstall cleanup, telemetry config defaults (INST-01, INST-02, INST-03)
+- [x] 05-01-PLAN.md -- Hook registration in settings.json, uninstall cleanup, telemetry config defaults (INST-01, INST-02, INST-03)
 
 ### Phase 6: Transcript Analysis
 **Goal**: A dedicated analysis agent can examine session transcripts for deep patterns that neither hooks nor workflow events capture
@@ -123,9 +123,9 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6
 | 2. Hook Observers | 2/2 | Complete ✓ | 2026-02-12 |
 | 3. Workflow Integration | 2/2 | Complete ✓ | 2026-02-12 |
 | 4. Feedback Loop | 3/3 | Complete ✓ | 2026-02-12 |
-| 5. Installation Integration | 0/1 | Not started | - |
+| 5. Installation Integration | 1/1 | Complete ✓ | 2026-02-12 |
 | 6. Transcript Analysis | 0/2 | Not started | - |
 
 ---
 *Roadmap created: 2026-02-11*
-*Last updated: 2026-02-11*
+*Last updated: 2026-02-12*
