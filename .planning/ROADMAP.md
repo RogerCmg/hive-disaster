@@ -14,8 +14,8 @@ Decimal phases appear between their surrounding integers in numeric order.
 
 - [x] **Phase 1: Core Infrastructure** - Event storage backbone, CLI commands, config, and rotation
 - [x] **Phase 2: Hook Observers** - Passive automatic capture of agent lifecycle events
-- [ ] **Phase 3: Workflow Integration** - Semantic event capture at workflow decision points
-- [ ] **Phase 4: Feedback Loop** - Digest generation, insight injection into agent context, /hive:insights command
+- [x] **Phase 3: Workflow Integration** - Semantic event capture at workflow decision points
+- [x] **Phase 4: Feedback Loop** - Digest generation, insight injection into agent context, /hive:insights command
 - [ ] **Phase 5: Installation Integration** - Hook registration and config setup during npx hive-cc install
 - [ ] **Phase 6: Transcript Analysis** - Deep post-hoc session analysis agent and cross-session pattern detection
 
@@ -66,8 +66,8 @@ Plans:
 **Plans:** 2 plans
 
 Plans:
-- [ ] 03-01-PLAN.md -- Config enforcement fix, deviation emits, checkpoint emits, user_correction at execution gates (WFLOW-01, WFLOW-02, WFLOW-05 partial)
-- [ ] 03-02-PLAN.md -- Verification gap emits, plan revision emits, user_correction at planning gates (WFLOW-03, WFLOW-04, WFLOW-05 partial)
+- [x] 03-01-PLAN.md -- Config enforcement fix, deviation emits, checkpoint emits, user_correction at execution gates (WFLOW-01, WFLOW-02, WFLOW-05 partial)
+- [x] 03-02-PLAN.md -- Verification gap emits, plan revision emits, user_correction at planning gates (WFLOW-03, WFLOW-04, WFLOW-05 partial)
 
 ### Phase 4: Feedback Loop
 **Goal**: Accumulated events are transformed into actionable insights that agents automatically receive at spawn, closing the observe-to-improve loop
@@ -81,9 +81,9 @@ Plans:
 **Plans:** 3 plans
 
 Plans:
-- [ ] 04-01-PLAN.md -- Enhanced digest with pattern detection, recall context helper, init command injection (FEED-01, FEED-02, FEED-05, FEED-06)
-- [ ] 04-02-PLAN.md -- Workflow recall block injection in 10 agent-spawning workflows (FEED-03)
-- [ ] 04-03-PLAN.md -- /hive:insights slash command and workflow (FEED-04)
+- [x] 04-01-PLAN.md -- Enhanced digest with pattern detection, recall context helper, init command injection (FEED-01, FEED-02, FEED-05, FEED-06)
+- [x] 04-02-PLAN.md -- Workflow recall block injection in 10 agent-spawning workflows (FEED-03)
+- [x] 04-03-PLAN.md -- /hive:insights slash command and workflow (FEED-04)
 
 ### Phase 5: Installation Integration
 **Goal**: Running `npx hive-cc` installs all Recall hooks and config automatically so users get telemetry out of the box
@@ -121,8 +121,8 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6
 |-------|----------------|--------|-----------|
 | 1. Core Infrastructure | 3/3 | Complete ✓ | 2026-02-12 |
 | 2. Hook Observers | 2/2 | Complete ✓ | 2026-02-12 |
-| 3. Workflow Integration | 0/2 | Not started | - |
-| 4. Feedback Loop | 0/3 | Not started | - |
+| 3. Workflow Integration | 2/2 | Complete ✓ | 2026-02-12 |
+| 4. Feedback Loop | 3/3 | Complete ✓ | 2026-02-12 |
 | 5. Installation Integration | 0/1 | Not started | - |
 | 6. Transcript Analysis | 0/2 | Not started | - |
 
