@@ -18,8 +18,8 @@ Then verify each level against the actual codebase.
 </core_principle>
 
 <required_reading>
-@~/.claude/hive/references/verification-patterns.md
-@~/.claude/hive/templates/verification-report.md
+@./.claude/hive/references/verification-patterns.md
+@./.claude/hive/templates/verification-report.md
 </required_reading>
 
 <process>
@@ -28,14 +28,14 @@ Then verify each level against the actual codebase.
 Load phase operation context:
 
 ```bash
-INIT=$(node ~/.claude/hive/bin/hive-tools.js init phase-op "${PHASE_ARG}")
+INIT=$(node ./.claude/hive/bin/hive-tools.js init phase-op "${PHASE_ARG}")
 ```
 
 Extract from init JSON: `phase_dir`, `phase_number`, `phase_name`, `has_plans`, `plan_count`.
 
 Then load phase details and list plans/summaries:
 ```bash
-node ~/.claude/hive/bin/hive-tools.js roadmap get-phase "${phase_number}"
+node ./.claude/hive/bin/hive-tools.js roadmap get-phase "${phase_number}"
 grep -E "^| ${phase_number}" .planning/REQUIREMENTS.md 2>/dev/null
 ls "$phase_dir"/*-SUMMARY.md "$phase_dir"/*-PLAN.md 2>/dev/null
 ```
@@ -50,7 +50,7 @@ Use hive-tools to extract must_haves from each PLAN:
 
 ```bash
 for plan in "$PHASE_DIR"/*-PLAN.md; do
-  MUST_HAVES=$(node ~/.claude/hive/bin/hive-tools.js frontmatter get "$plan" --field must_haves)
+  MUST_HAVES=$(node ./.claude/hive/bin/hive-tools.js frontmatter get "$plan" --field must_haves)
   echo "=== $plan ===" && echo "$MUST_HAVES"
 done
 ```
@@ -81,7 +81,7 @@ For each truth: identify supporting artifacts → check artifact status → chec
 When a truth's status is FAILED, emit a verification_gap event for Recall:
 
 ```bash
-node ~/.claude/hive/bin/hive-tools.js telemetry emit verification_gap \
+node ./.claude/hive/bin/hive-tools.js telemetry emit verification_gap \
   --data "{\"phase\":\"${PHASE_NUMBER}\",\"level\":\"truth\",\"what_failed\":\"${TRUTH_DESCRIPTION}\",\"expected\":\"VERIFIED\",\"actual\":\"FAILED\"}"
 ```
 </step>
@@ -91,7 +91,7 @@ Use hive-tools for artifact verification against must_haves in each PLAN:
 
 ```bash
 for plan in "$PHASE_DIR"/*-PLAN.md; do
-  ARTIFACT_RESULT=$(node ~/.claude/hive/bin/hive-tools.js verify artifacts "$plan")
+  ARTIFACT_RESULT=$(node ./.claude/hive/bin/hive-tools.js verify artifacts "$plan")
   echo "=== $plan ===" && echo "$ARTIFACT_RESULT"
 done
 ```
@@ -120,7 +120,7 @@ WIRED = imported AND used. ORPHANED = exists but not imported/used.
 When an artifact status is MISSING, STUB, or ORPHANED, emit a verification_gap event for Recall:
 
 ```bash
-node ~/.claude/hive/bin/hive-tools.js telemetry emit verification_gap \
+node ./.claude/hive/bin/hive-tools.js telemetry emit verification_gap \
   --data "{\"phase\":\"${PHASE_NUMBER}\",\"level\":\"artifact\",\"what_failed\":\"${ARTIFACT_PATH}\",\"expected\":\"VERIFIED\",\"actual\":\"${ARTIFACT_STATUS}\"}"
 ```
 
@@ -132,7 +132,7 @@ Use hive-tools for key link verification against must_haves in each PLAN:
 
 ```bash
 for plan in "$PHASE_DIR"/*-PLAN.md; do
-  LINKS_RESULT=$(node ~/.claude/hive/bin/hive-tools.js verify key-links "$plan")
+  LINKS_RESULT=$(node ./.claude/hive/bin/hive-tools.js verify key-links "$plan")
   echo "=== $plan ===" && echo "$LINKS_RESULT"
 done
 ```
@@ -147,7 +147,7 @@ Parse JSON result: `{ all_verified, verified, total, links: [{from, to, via, ver
 When a key link status is NOT_WIRED or PARTIAL, emit a verification_gap event for Recall:
 
 ```bash
-node ~/.claude/hive/bin/hive-tools.js telemetry emit verification_gap \
+node ./.claude/hive/bin/hive-tools.js telemetry emit verification_gap \
   --data "{\"phase\":\"${PHASE_NUMBER}\",\"level\":\"wiring\",\"what_failed\":\"${LINK_FROM} -> ${LINK_TO}\",\"expected\":\"WIRED\",\"actual\":\"${LINK_STATUS}\"}"
 ```
 
@@ -222,7 +222,7 @@ REPORT_PATH="$PHASE_DIR/${PHASE_NUM}-VERIFICATION.md"
 
 Fill template sections: frontmatter (phase/timestamp/status/score), goal achievement, artifact table, wiring table, requirements coverage, anti-patterns, human verification, gaps summary, fix plans (if gaps_found), metadata.
 
-See ~/.claude/hive/templates/verification-report.md for complete template.
+See ./.claude/hive/templates/verification-report.md for complete template.
 </step>
 
 <step name="return_to_orchestrator">
