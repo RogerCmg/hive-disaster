@@ -2031,3 +2031,119 @@ describe('scaffold command', () => {
     assert.strictEqual(output.reason, 'already_exists');
   });
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// git detect command
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe('git detect command', () => {
+  test('detect returns git version and gh availability', () => {
+    const result = runGsdTools('git detect');
+    assert.ok(result.success, `Command failed: ${result.error}`);
+
+    const output = JSON.parse(result.output);
+    assert.ok(output.git, 'should have git field');
+    assert.ok(typeof output.git.version === 'string', 'git.version should be a string');
+    assert.ok(/\d+\.\d+/.test(output.git.version), 'git.version should match version pattern');
+    assert.ok(typeof output.git.merge_tree === 'boolean', 'git.merge_tree should be boolean');
+    assert.ok(output.gh, 'should have gh field');
+    assert.ok(typeof output.gh.available === 'boolean', 'gh.available should be boolean');
+  });
+
+  test('detect returns structured JSON via --raw', () => {
+    const result = runGsdTools('git detect --raw');
+    assert.ok(result.success, `Command failed: ${result.error}`);
+    assert.ok(result.output.length > 0, 'should produce output in raw mode');
+    // Raw mode returns JSON string for this command
+    const parsed = JSON.parse(result.output);
+    assert.ok(parsed.git, 'raw output should parse as JSON with git field');
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// git detect-build-cmd command
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe('git detect-build-cmd command', () => {
+  let tmpDir;
+
+  beforeEach(() => {
+    tmpDir = createTempProject();
+  });
+
+  afterEach(() => {
+    cleanup(tmpDir);
+  });
+
+  test('detects npm test in Node project', () => {
+    fs.writeFileSync(
+      path.join(tmpDir, 'package.json'),
+      JSON.stringify({ scripts: { test: 'jest' } })
+    );
+
+    const result = runGsdTools('git detect-build-cmd', tmpDir);
+    assert.ok(result.success, `Command failed: ${result.error}`);
+
+    const output = JSON.parse(result.output);
+    assert.strictEqual(output.detected, true, 'should be detected');
+    assert.strictEqual(output.command, 'npm test', 'command should be npm test');
+    assert.strictEqual(output.source, 'package.json', 'source should be package.json');
+  });
+
+  test('skips npm default placeholder test script', () => {
+    fs.writeFileSync(
+      path.join(tmpDir, 'package.json'),
+      JSON.stringify({ scripts: { test: 'echo "Error: no test specified" && exit 1' } })
+    );
+
+    const result = runGsdTools('git detect-build-cmd', tmpDir);
+    assert.ok(result.success, `Command failed: ${result.error}`);
+
+    const output = JSON.parse(result.output);
+    assert.strictEqual(output.detected, false, 'should not detect npm default placeholder');
+  });
+
+  test('detects cargo test for Rust projects', () => {
+    fs.writeFileSync(path.join(tmpDir, 'Cargo.toml'), '[package]\nname = "test"\n');
+
+    const result = runGsdTools('git detect-build-cmd', tmpDir);
+    assert.ok(result.success, `Command failed: ${result.error}`);
+
+    const output = JSON.parse(result.output);
+    assert.strictEqual(output.detected, true, 'should detect Cargo project');
+    assert.strictEqual(output.command, 'cargo test', 'command should be cargo test');
+  });
+
+  test('returns none detected for empty project', () => {
+    // tmpDir has .planning/ but no manifest files in root
+    const result = runGsdTools('git detect-build-cmd', tmpDir);
+    assert.ok(result.success, `Command failed: ${result.error}`);
+
+    const output = JSON.parse(result.output);
+    assert.strictEqual(output.detected, false, 'should not detect in empty project');
+    assert.strictEqual(output.command, null, 'command should be null');
+  });
+
+  test('config override takes precedence', () => {
+    // Create a package.json so detection would normally find npm test
+    fs.writeFileSync(
+      path.join(tmpDir, 'package.json'),
+      JSON.stringify({ scripts: { test: 'jest' } })
+    );
+
+    // Override via config
+    fs.writeFileSync(
+      path.join(tmpDir, '.planning', 'config.json'),
+      JSON.stringify({ git: { build_command: 'make custom-test' } })
+    );
+
+    const result = runGsdTools('git detect-build-cmd', tmpDir);
+    assert.ok(result.success, `Command failed: ${result.error}`);
+
+    const output = JSON.parse(result.output);
+    assert.strictEqual(output.detected, true, 'should be detected via config');
+    assert.strictEqual(output.command, 'make custom-test', 'command should be config override');
+    assert.strictEqual(output.override, true, 'override flag should be true');
+    assert.strictEqual(output.source, 'config', 'source should be config');
+  });
+});
