@@ -5,33 +5,30 @@
 See: .planning/PROJECT.md (updated 2026-02-12)
 
 **Core value:** Safe path from plan to merged code — quality scales with parallelism
-**Current focus:** Phase 8 - Safety & Configuration
+**Current focus:** Planning next milestone
 
 ## Current Position
 
-Phase: 8 of 11 (Safety & Configuration)
-Plan: 0 of TBD in current phase
-Status: Ready to plan
-Last activity: 2026-02-12 — v2.0 roadmap created (4 phases, 28 requirements mapped)
+Phase: N/A (between milestones)
+Plan: N/A
+Status: v2.0 shipped, awaiting next milestone
+Last activity: 2026-02-12 — v2.0 milestone archived
 
-Progress: [░░░░░░░░░░] 0%
+Progress: [██████████] 100% (v2.0)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 14 (v1.0)
-- Average duration: ~30 min
-- Total execution time: ~7 hours (v1.0)
+- Total plans completed: 24 (v1.0: 14, v2.0: 10)
+- Average duration: ~20 min (v1.0 ~30m, v2.0 ~3.5m)
+- Total execution time: ~7h (v1.0) + ~35min (v2.0)
 
-**By Phase (v1.0):**
+**By Milestone:**
 
-| Phase | Plans | Total | Avg/Plan |
-|-------|-------|-------|----------|
-| 1-7 (v1.0) | 14 | ~7h | ~30m |
-
-**Recent Trend:**
-- v1.0 final phases: stable
-- Trend: Stable
+| Milestone | Phases | Plans | Total | Avg/Plan |
+|-----------|--------|-------|-------|----------|
+| v1.0 Recall | 7 | 14 | ~7h | ~30m |
+| v2.0 Git Flow | 4 | 10 | ~35m | ~3.5m |
 
 *Updated after each plan completion*
 
@@ -40,14 +37,7 @@ Progress: [░░░░░░░░░░] 0%
 ### Decisions
 
 Decisions are logged in PROJECT.md Key Decisions table.
-Recent decisions affecting current work:
-
-- Foundation first: single-terminal + repo manager before multi-terminal
-- Build gates always on by default, user disables if needed
-- Merge commit (--no-ff) to preserve per-task granularity
-- mkdir-based locks (not flock) for cross-platform compatibility
-- spawnSync (not execSync) for git/gh commands — structured exit handling
-- Same-directory temp+rename for atomic writes — cross-filesystem rename breaks atomicity
+All v2.0 decisions marked with outcomes (✓ Good).
 
 ### Pending Todos
 
@@ -60,5 +50,5 @@ None.
 ## Session Continuity
 
 **Last session:** 2026-02-12
-**Stopped at:** v2.0 roadmap created, ready to plan Phase 8
-**Resume file:** None
+**Stopped at:** v2.0 milestone archived and tagged
+**Resume file:** Next: `/hive:new-milestone` to start v2.1+

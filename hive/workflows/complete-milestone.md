@@ -425,7 +425,79 @@ See: .planning/PROJECT.md (updated [today])
 
 </step>
 
+<step name="merge_dev_to_main">
+
+**Merge dev branch to main with Gate 3 validation (git flow only).**
+
+Check git flow config:
+
+```bash
+CONFIG=$(cat .planning/config.json 2>/dev/null)
+GIT_FLOW=$(echo "$CONFIG" | jq -r '.git.flow // "none"')
+GIT_DEV_BRANCH=$(echo "$CONFIG" | jq -r '.git.dev_branch // "dev"')
+```
+
+**If GIT_FLOW is "none":** Skip this step entirely. The existing `handle_branches` step handles legacy branching.
+
+**Gate 3 (pre-main build validation):**
+
+```bash
+PRE_MAIN=$(echo "$CONFIG" | jq -r '.git.build_gates.pre_main // true')
+```
+
+If PRE_MAIN is true:
+
+```bash
+# Ensure we are on dev for the build
+git checkout "${GIT_DEV_BRANCH}"
+
+BUILD_RESULT=$(node ~/.claude/hive/bin/hive-tools.js git run-build-gate --raw)
+BUILD_SUCCESS=$(echo "$BUILD_RESULT" | jq -r '.success')
+BUILD_SKIPPED=$(echo "$BUILD_RESULT" | jq -r '.skipped // false')
+BUILD_TIMED_OUT=$(echo "$BUILD_RESULT" | jq -r '.timedOut // false')
+BUILD_CMD=$(echo "$BUILD_RESULT" | jq -r '.command // "unknown"')
+BUILD_EXIT_CODE=$(echo "$BUILD_RESULT" | jq -r '.exitCode // "N/A"')
+BUILD_STDERR=$(echo "$BUILD_RESULT" | jq -r '.stderr // ""')
+```
+
+Handle results using the same pattern as the execute-plan build gate:
+- BUILD_SKIPPED true: "No build command detected. Skipping Gate 3." Continue to merge.
+- BUILD_SUCCESS true: "Gate 3 passed (command: ${BUILD_CMD})." Continue to merge.
+- BUILD_TIMED_OUT true: Present timeout with fix/increase-timeout/skip/stop options.
+- BUILD_SUCCESS false: Present failure with fix/skip/stop options.
+
+If user chooses "fix": investigate, fix, commit fix, re-run gate.
+If user chooses "skip": log "Gate 3 skipped by user." Continue to merge.
+If user chooses "stop": abort milestone completion. Do NOT proceed to merge.
+
+**Merge dev to main:**
+
+```bash
+MERGE_RESULT=$(node ~/.claude/hive/bin/hive-tools.js git merge-dev-to-main --raw)
+MERGE_SUCCESS=$(echo "$MERGE_RESULT" | jq -r '.success')
+MERGE_FROM=$(echo "$MERGE_RESULT" | jq -r '.from')
+MERGE_TO=$(echo "$MERGE_RESULT" | jq -r '.to')
+```
+
+If success: log "Merged ${MERGE_FROM} into ${MERGE_TO}." Continue to git_tag.
+If failure (merge conflict): present to user with options:
+- "resolve" -- User resolves conflicts manually, then proceed
+- "abort" -- Abort the merge, cancel milestone completion
+- "skip" -- Skip the merge, continue with milestone completion (tag only)
+
+**After merge, return to dev:**
+
+```bash
+git checkout "${GIT_DEV_BRANCH}"
+```
+
+**If GIT_FLOW is "github":** After this step completes, SKIP the `handle_branches` step entirely (legacy branching and git_flow are mutually exclusive paths).
+
+</step>
+
 <step name="handle_branches">
+
+**If GIT_FLOW is "github":** This step was already handled by `merge_dev_to_main`. Skip.
 
 Check branching strategy and offer merge options.
 

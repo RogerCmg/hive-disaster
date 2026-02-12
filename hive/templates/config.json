@@ -42,6 +42,19 @@
     "always_confirm_destructive": true,
     "always_confirm_external_services": true
   },
+  "git": {
+    "flow": "github",
+    "dev_branch": "dev",
+    "build_gates": {
+      "pre_pr": true,
+      "pre_merge": true,
+      "pre_main": true
+    },
+    "build_command": null,
+    "build_timeout": 300,
+    "merge_strategy": "merge",
+    "repo_manager": false
+  },
   "telemetry": {
     "enabled": true,
     "hooks": true,

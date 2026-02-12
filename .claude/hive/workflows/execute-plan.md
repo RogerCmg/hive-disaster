@@ -421,12 +421,137 @@ fi
 ```
 </step>
 
-<step name="generate_user_setup">
+<step name="build_gate">
+**Pre-PR build validation.** Runs after all tasks completed and committed, before summary creation.
+
+**Check if build gate applies:**
+
 ```bash
-grep -A 50 "^user_setup:" .planning/phases/XX-name/{phase}-{plan}-PLAN.md | head -50
+GIT_FLOW=$(echo "$CONFIG_CONTENT" | jq -r '.git.flow // "github"')
+PRE_PR_GATE=$(echo "$CONFIG_CONTENT" | jq -r '.git.build_gates.pre_pr // true')
 ```
 
-If user_setup exists: create `{phase}-USER-SETUP.md` using template `~/.claude/hive/templates/user-setup.md`. Per service: env vars table, account setup checklist, dashboard config, local dev notes, verification commands. Status "Incomplete". Set `USER_SETUP_CREATED=true`. If empty/missing: skip.
+**Skip conditions (any one skips the gate):**
+- `GIT_FLOW` is `"none"` -> Skip: "Git flow disabled. Skipping build gate."
+- `PRE_PR_GATE` is `false` -> Skip: "Pre-PR build gate disabled in config. Skipping."
+
+**Run build gate:**
+
+```bash
+BUILD_RESULT=$(node ./.claude/hive/bin/hive-tools.js git run-build-gate --raw)
+BUILD_SUCCESS=$(echo "$BUILD_RESULT" | jq -r '.success')
+BUILD_SKIPPED=$(echo "$BUILD_RESULT" | jq -r '.skipped // false')
+BUILD_TIMED_OUT=$(echo "$BUILD_RESULT" | jq -r '.timedOut // false')
+BUILD_CMD=$(echo "$BUILD_RESULT" | jq -r '.command // "unknown"')
+BUILD_EXIT_CODE=$(echo "$BUILD_RESULT" | jq -r '.exitCode // "N/A"')
+BUILD_STDERR=$(echo "$BUILD_RESULT" | jq -r '.stderr // ""')
+```
+
+**Handle results:**
+
+| Condition | Action |
+|-----------|--------|
+| `BUILD_SKIPPED` is `"true"` | No build command detected. Log: "No build command detected. Skipping build gate." Set `BUILD_GATE_RESULT="skipped"`. Continue to summary. |
+| `BUILD_SUCCESS` is `"true"` | Build passed. Log: "Build gate passed (command: ${BUILD_CMD})." Set `BUILD_GATE_RESULT="passed"`. Continue to summary. |
+| `BUILD_TIMED_OUT` is `"true"` | Build hung. See timeout handling below. Set `BUILD_GATE_RESULT="timeout"`. |
+| `BUILD_SUCCESS` is `"false"` | Build failed. See failure handling below. Set `BUILD_GATE_RESULT="failed"`. |
+
+**On build timeout:**
+
+**Team mode:**
+```
+SendMessage(type="message", recipient="team-lead",
+  summary="Build gate timed out: ${PLAN_ID}",
+  content="BUILD GATE TIMED OUT
+Plan: ${PHASE}-${PLAN}
+Command: ${BUILD_CMD}
+Timeout: configured in git.build_timeout (default 300s)
+
+The build process was killed after exceeding the configured timeout.
+
+Possible causes:
+- Build command is interactive (requires user input)
+- Build command has an infinite loop or deadlock
+- Timeout is too short for this project
+
+Options:
+1. fix - Investigate and fix the build issue
+2. increase-timeout - Set a higher timeout
+3. skip - Proceed without build validation (note in SUMMARY)
+4. stop - Stop execution, investigate manually")
+```
+
+**Classic mode:**
+```
+## Build Gate Timed Out
+
+**Plan:** ${PHASE}-${PLAN}
+**Command:** ${BUILD_CMD}
+**Timeout:** configured in git.build_timeout (default 300s)
+
+The build process was killed after exceeding the configured timeout.
+
+Possible causes:
+- Build command is interactive (requires user input)
+- Build command has an infinite loop or deadlock
+- Timeout is too short for this project
+
+Options:
+- "fix" - Investigate and fix the build issue
+- "increase-timeout" - Set a higher timeout
+- "skip" - Proceed without build validation
+- "stop" - Stop execution
+```
+
+**On build failure (not timeout):**
+
+**Team mode:**
+```
+SendMessage(type="message", recipient="team-lead",
+  summary="Build gate failed: ${PLAN_ID}",
+  content="BUILD GATE FAILED
+Plan: ${PHASE}-${PLAN}
+Command: ${BUILD_CMD}
+Exit code: ${BUILD_EXIT_CODE}
+
+stderr (truncated):
+${BUILD_STDERR}
+
+Options:
+1. fix - I'll attempt to fix the build issue
+2. skip - Proceed without build validation (note in SUMMARY)
+3. stop - Stop execution, investigate manually")
+```
+
+**Classic mode:**
+```
+## Build Gate Failed
+
+**Plan:** ${PHASE}-${PLAN}
+**Command:** ${BUILD_CMD}
+**Exit code:** ${BUILD_EXIT_CODE}
+
+**Output:**
+${BUILD_STDERR}
+
+Options:
+- "fix" - Attempt to fix the build issue
+- "skip" - Proceed without build validation
+- "stop" - Stop execution
+```
+
+**Handle user response to failure/timeout:**
+
+| Response | Action |
+|----------|--------|
+| "fix" | Investigate the build failure (read error output, check source files). Apply fixes. Commit fix: `fix(${PHASE}-${PLAN}): fix build failure - {description}`. Re-run build gate (loop back to `BUILD_RESULT` command). If passes: continue. If fails again: re-present options. |
+| "increase-timeout" (timeout only) | Ask user for new timeout value. Note: Cannot change config at runtime. Advise user to update `git.build_timeout` in `.planning/config.json` and re-run. Or offer to skip. |
+| "skip" | Set `BUILD_GATE_RESULT="skipped_by_user"`. Continue to summary. The SUMMARY must note: "Build gate skipped by user after failure." |
+| "stop" | Stop execution. Report partial progress. Do NOT create SUMMARY.md. Exit. |
+
+**Record build gate result for SUMMARY:**
+
+Set `BUILD_GATE_RESULT` variable for use in create_summary step. Values: "passed", "skipped", "skipped_by_user", "failed", "timeout".
 </step>
 
 <step name="create_summary">
@@ -440,7 +565,221 @@ One-liner SUBSTANTIVE: "JWT auth with refresh rotation using jose library" not "
 
 Include: duration, start/end times, task count, file count.
 
+**Build Gate section (if BUILD_GATE_RESULT is set):**
+
+After the "Issues Encountered" section, add:
+
+```
+## Build Gate
+
+**Result:** ${BUILD_GATE_RESULT}
+**Command:** ${BUILD_CMD}
+
+{If "passed": "Build validation passed."}
+{If "skipped": "No build command detected or git flow disabled."}
+{If "skipped_by_user": "Build gate skipped by user after failure. Build command: ${BUILD_CMD}, Exit code: ${BUILD_EXIT_CODE}"}
+{If "failed": "Build failed. See Issues Encountered."}
+{If "timeout": "Build timed out. See Issues Encountered."}
+```
+
+If BUILD_GATE_RESULT is not set (git flow none, gate disabled): omit the section entirely.
+
 Next: more plans → "Ready for {next-plan}" | last → "Phase complete, ready for transition".
+</step>
+
+<step name="create_pr_and_merge">
+**Create PR from plan branch to dev and self-merge after build gate passes.**
+
+**1. Check if PR flow applies:**
+
+```bash
+GIT_FLOW=$(echo "$CONFIG_CONTENT" | jq -r '.git.flow // "github"')
+GIT_DEV_BRANCH=$(echo "$CONFIG_CONTENT" | jq -r '.git.dev_branch // "dev"')
+```
+
+**Skip conditions (any one skips):**
+- `GIT_FLOW` is `"none"` -> Skip: "Git flow disabled. Skipping PR creation." Set `PR_FLOW_RESULT="skipped_flow_disabled"`. Continue to next step.
+- `BUILD_GATE_RESULT` is `"failed"` or `"timeout"` (and user chose "stop") -> Skip: "Build gate did not pass. Skipping PR creation." Set `PR_FLOW_RESULT="skipped_build_failed"`. Continue to next step.
+
+**Check gh CLI availability:**
+
+```bash
+GH_CHECK=$(node ./.claude/hive/bin/hive-tools.js git detect --raw)
+GH_AVAILABLE=$(echo "$GH_CHECK" | jq -r '.gh.available')
+```
+
+If `GH_AVAILABLE` is `false`: Skip with message "gh CLI not available. Skipping PR creation. Plan code is committed locally on branch." Set `PR_FLOW_RESULT="skipped_no_gh"`. Continue to next step.
+
+**2. Construct PR title and body from SUMMARY.md:**
+
+Read the SUMMARY.md that was just created in the previous step:
+
+```bash
+SUMMARY_PATH=".planning/phases/${PHASE_DIR}/${PHASE}-${PLAN}-SUMMARY.md"
+```
+
+Extract from SUMMARY.md:
+- One-liner: the bold line after the title (the substantive description)
+- Task commits section: the "## Task Commits" table
+
+```bash
+# Extract one-liner (first bold line after the title)
+ONE_LINER=$(sed -n 's/^\*\*\(.*\)\*\*$/\1/p' "$SUMMARY_PATH" | head -1)
+
+# Extract task commits section
+TASK_COMMITS=$(sed -n '/^## Task Commits/,/^##/p' "$SUMMARY_PATH" | head -20)
+```
+
+Construct PR title: `${PHASE}-${PLAN}: ${ONE_LINER}` (truncate to 72 chars if needed)
+
+Construct PR body in markdown format:
+
+```
+## ${PHASE}-${PLAN}
+
+${ONE_LINER}
+
+### Task Commits
+${TASK_COMMITS}
+
+### Build Gate
+**Result:** ${BUILD_GATE_RESULT}
+**Command:** ${BUILD_CMD}
+
+### Context
+Phase: ${PHASE_NUMBER} - ${PHASE_NAME}
+Branch: $(git branch --show-current)
+```
+
+Truncate body at 4000 chars to avoid shell argument limits.
+
+**3. Push branch to remote and create PR:**
+
+```bash
+# Push plan branch to remote (required for gh pr create)
+git push -u origin "$(git branch --show-current)" 2>/dev/null
+```
+
+If push fails: set `PR_FLOW_RESULT="skipped_push_failed"`, log "Could not push branch to remote. Skipping PR creation." Continue to next step.
+
+```bash
+PR_RESULT=$(node ./.claude/hive/bin/hive-tools.js git create-pr \
+  --base "${GIT_DEV_BRANCH}" \
+  --title "${PR_TITLE}" \
+  --body "${PR_BODY}" \
+  --raw)
+PR_SUCCESS=$(echo "$PR_RESULT" | jq -r '.success')
+PR_URL=$(echo "$PR_RESULT" | jq -r '.pr_url // empty')
+```
+
+If PR creation fails: log warning with error, set `PR_FLOW_RESULT="failed_pr_create"`. Continue to next step (do NOT block execution).
+
+**3.5. Check merge path (repo manager vs self-merge):**
+
+```bash
+REPO_MANAGER=$(echo "$CONFIG_CONTENT" | jq -r '.git.repo_manager // false')
+```
+
+**If `REPO_MANAGER` is `true`:**
+
+Submit to merge queue instead of self-merging:
+
+```bash
+# Extract plan metadata from frontmatter
+PLAN_WAVE=$(grep -m1 "^wave:" "${PLAN_PATH}" | sed 's/wave: *//')
+
+# Submit to merge queue
+QUEUE_RESULT=$(node ./.claude/hive/bin/hive-tools.js git queue-submit \
+  --plan-id "${PHASE}-${PLAN}" \
+  --branch "$(git branch --show-current)" \
+  --wave "${PLAN_WAVE}" \
+  --pr-number "${PR_NUMBER}" \
+  --pr-url "${PR_URL}" \
+  --raw)
+QUEUE_SUCCESS=$(echo "$QUEUE_RESULT" | jq -r '.success')
+QUEUE_ID=$(echo "$QUEUE_RESULT" | jq -r '.id // empty')
+```
+
+If queue submission succeeded:
+- Log: "Submitted to merge queue: ${QUEUE_ID} (PR #${PR_NUMBER}). Run `/hive:manage-repo` to process."
+- Set `PR_FLOW_RESULT="queued"`.
+- Do NOT self-merge. Do NOT checkout dev. The repo manager will handle merge and branch cleanup.
+- Skip to step 6 (record PR result).
+
+If queue submission failed:
+- Log warning: "Failed to submit to merge queue. Falling back to self-merge."
+- Continue to step 4 (self-merge) as fallback.
+
+**If `REPO_MANAGER` is `false` or not set (default):**
+
+Continue to step 4 (self-merge) -- existing Phase 10 behavior, completely unchanged.
+
+**4. Self-merge the PR (single-terminal mode):**
+
+Extract PR number from URL:
+
+```bash
+PR_NUMBER=$(echo "$PR_URL" | grep -oE '[0-9]+$')
+```
+
+If PR_NUMBER is empty, fall back:
+
+```bash
+PR_NUMBER=$(gh pr list --head "$(git branch --show-current)" --json number --jq '.[0].number' 2>/dev/null)
+```
+
+Merge:
+
+```bash
+MERGE_RESULT=$(node ./.claude/hive/bin/hive-tools.js git self-merge-pr "${PR_NUMBER}" --raw)
+MERGE_SUCCESS=$(echo "$MERGE_RESULT" | jq -r '.success')
+MERGE_STRATEGY=$(echo "$MERGE_RESULT" | jq -r '.strategy')
+```
+
+Handle merge result:
+- `success: true` -> Log: "PR #${PR_NUMBER} merged (${MERGE_STRATEGY}). Branch deleted by gh." Set `PR_FLOW_RESULT="merged"`.
+- `success: false`, error contains "merge conflict" -> Report conflict to user with options: resolve, skip, stop.
+- `success: false`, other error -> Log warning. Set `PR_FLOW_RESULT="failed_merge"`. Continue.
+
+**5. After successful merge, checkout dev and pull:**
+
+```bash
+git checkout "${GIT_DEV_BRANCH}"
+git pull origin "${GIT_DEV_BRANCH}" 2>/dev/null || true
+```
+
+This syncs the merge commit locally so the next plan branch forks from the latest dev state.
+
+**6. Record PR result for SUMMARY update (optional):**
+
+If the workflow wants to append PR info to the existing SUMMARY.md, it can add a "## PR Flow" section. This is optional — the SUMMARY was already created, so this is an append:
+
+```
+## PR Flow
+
+**Result:** ${PR_FLOW_RESULT}
+**PR:** ${PR_URL}
+**Merge strategy:** ${MERGE_STRATEGY}
+```
+
+If `PR_FLOW_RESULT` is `"queued"`, use this format instead:
+
+```
+## PR Flow
+
+**Result:** queued
+**PR:** ${PR_URL}
+**Queue ID:** ${QUEUE_ID}
+**Note:** Submitted to merge queue. Merge pending via /hive:manage-repo.
+```
+</step>
+
+<step name="generate_user_setup">
+```bash
+grep -A 50 "^user_setup:" .planning/phases/XX-name/{phase}-{plan}-PLAN.md | head -50
+```
+
+If user_setup exists: create `{phase}-USER-SETUP.md` using template `~/.claude/hive/templates/user-setup.md`. Per service: env vars table, account setup checklist, dashboard config, local dev notes, verification commands. Status "Incomplete". Set `USER_SETUP_CREATED=true`. If empty/missing: skip.
 </step>
 
 <step name="update_current_position">
