@@ -21,5 +21,11 @@
     "audit_team": true,
     "mapper_team": true
   },
-  "dynamic_scheduling": true
+  "dynamic_scheduling": true,
+  "telemetry": {
+    "enabled": true,
+    "hooks": true,
+    "workflow_events": true,
+    "transcript_analysis": false
+  }
 }
