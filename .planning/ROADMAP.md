@@ -51,8 +51,8 @@ Plans:
 **Plans:** 2 plans
 
 Plans:
-- [ ] 02-01-PLAN.md -- SubagentStop hook, VALID_EVENT_TYPES update, hook registration, build script (HOOK-01, HOOK-06, HOOK-07)
-- [ ] 02-02-PLAN.md -- PostToolUseFailure, PreCompact, and SessionStart/End hooks (HOOK-02, HOOK-03, HOOK-04, HOOK-05)
+- [x] 02-01-PLAN.md -- SubagentStop hook, VALID_EVENT_TYPES update, hook registration, build script (HOOK-01, HOOK-06, HOOK-07)
+- [x] 02-02-PLAN.md -- PostToolUseFailure, PreCompact, and SessionStart/End hooks (HOOK-02, HOOK-03, HOOK-04, HOOK-05)
 
 ### Phase 3: Workflow Integration
 **Goal**: Semantic events that hooks cannot see -- deviations, checkpoints, verification gaps, plan revisions, and user corrections -- are captured at workflow decision points
@@ -63,11 +63,11 @@ Plans:
   2. When a checkpoint resolves during phase execution, a `checkpoint` event records the checkpoint type, user response, and outcome
   3. When verification finds a gap, a `verification_gap` event records what failed and at which verification level
   4. When a user modifies or rejects agent output at a confirmation gate, a `user_correction` event captures what changed
-**Plans**: TBD
+**Plans:** 2 plans
 
 Plans:
-- [ ] 03-01: Deviation and checkpoint emit integration (WFLOW-01, WFLOW-02)
-- [ ] 03-02: Verification, revision, and correction emit integration (WFLOW-03, WFLOW-04, WFLOW-05)
+- [ ] 03-01-PLAN.md -- Config enforcement fix, deviation emits, checkpoint emits, user_correction at execution gates (WFLOW-01, WFLOW-02, WFLOW-05 partial)
+- [ ] 03-02-PLAN.md -- Verification gap emits, plan revision emits, user_correction at planning gates (WFLOW-03, WFLOW-04, WFLOW-05 partial)
 
 ### Phase 4: Feedback Loop
 **Goal**: Accumulated events are transformed into actionable insights that agents automatically receive at spawn, closing the observe-to-improve loop
