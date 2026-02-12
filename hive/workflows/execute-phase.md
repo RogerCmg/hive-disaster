@@ -432,21 +432,25 @@ Execute each wave. Within a wave: parallel if `PARALLELIZATION=true`, sequential
 
 6. **Plan branch cleanup (git flow "github" only):**
 
-   After wave completion and BEFORE proceeding to next wave, clean up merged plan branches.
+   After wave completion and BEFORE proceeding to next wave, clean up plan branches that were merged during execute-plan's PR flow.
 
-   **Note:** In Phase 9, branches are cleaned up only after the plan has been merged to dev. Since Phase 10 implements the actual PR and merge flow, full cleanup activates when Phase 10 is complete. For Phase 9, include the cleanup logic so it is ready to be triggered by Phase 10's merge step.
+   **Note:** Plan branches are merged to dev via PR self-merge in execute-plan.md. This cleanup step handles the LOCAL branch deletion. The remote branch is already deleted by `gh pr merge --delete-branch`.
 
    For each completed plan in the wave (where git_flow is "github"):
    ```bash
-   # Switch to dev before deleting plan branch
-   git checkout "${GIT_DEV_BRANCH}"
+   # Verify we are on dev (execute-plan should have left us here after PR merge)
+   CURRENT=$(git branch --show-current)
+   if [ "$CURRENT" != "${GIT_DEV_BRANCH}" ]; then
+     git checkout "${GIT_DEV_BRANCH}" 2>/dev/null || true
+   fi
 
+   # Delete local plan branch (safe delete — succeeds because branch is merged to dev)
    CLEANUP=$(node ~/.claude/hive/bin/hive-tools.js git delete-plan-branch "${BRANCH_NAME}" --raw)
    CLEANUP_SUCCESS=$(echo "$CLEANUP" | jq -r '.success')
    ```
 
    If cleanup succeeds: log "Cleaned up branch: ${BRANCH_NAME}".
-   If cleanup fails with "not fully merged": log warning "Branch ${BRANCH_NAME} not yet merged -- skipping cleanup (will be cleaned after merge in Phase 10)". Do NOT force-delete.
+   If cleanup fails with "not fully merged": the plan's PR may not have been merged (gh unavailable, merge failed, etc.). Log warning: "Branch ${BRANCH_NAME} not fully merged to dev. Keeping for manual resolution." Do NOT force-delete.
    If cleanup fails with other error: log warning but do not block execution.
 
    Branch cleanup is BEST EFFORT. Stale branches are informational, not harmful.
@@ -582,21 +586,25 @@ checkpoint_handling step for checkpoints, continuation agents for resumption.
 
 6. **Plan branch cleanup (git flow "github" only):**
 
-   After wave completion and BEFORE proceeding to next wave, clean up merged plan branches.
+   After wave completion and BEFORE proceeding to next wave, clean up plan branches that were merged during execute-plan's PR flow.
 
-   **Note:** In Phase 9, branches are cleaned up only after the plan has been merged to dev. Since Phase 10 implements the actual PR and merge flow, full cleanup activates when Phase 10 is complete. For Phase 9, include the cleanup logic so it is ready to be triggered by Phase 10's merge step.
+   **Note:** Plan branches are merged to dev via PR self-merge in execute-plan.md. This cleanup step handles the LOCAL branch deletion. The remote branch is already deleted by `gh pr merge --delete-branch`.
 
    For each completed plan in the wave (where git_flow is "github"):
    ```bash
-   # Switch to dev before deleting plan branch
-   git checkout "${GIT_DEV_BRANCH}"
+   # Verify we are on dev (execute-plan should have left us here after PR merge)
+   CURRENT=$(git branch --show-current)
+   if [ "$CURRENT" != "${GIT_DEV_BRANCH}" ]; then
+     git checkout "${GIT_DEV_BRANCH}" 2>/dev/null || true
+   fi
 
+   # Delete local plan branch (safe delete — succeeds because branch is merged to dev)
    CLEANUP=$(node ~/.claude/hive/bin/hive-tools.js git delete-plan-branch "${BRANCH_NAME}" --raw)
    CLEANUP_SUCCESS=$(echo "$CLEANUP" | jq -r '.success')
    ```
 
    If cleanup succeeds: log "Cleaned up branch: ${BRANCH_NAME}".
-   If cleanup fails with "not fully merged": log warning "Branch ${BRANCH_NAME} not yet merged -- skipping cleanup (will be cleaned after merge in Phase 10)". Do NOT force-delete.
+   If cleanup fails with "not fully merged": the plan's PR may not have been merged (gh unavailable, merge failed, etc.). Log warning: "Branch ${BRANCH_NAME} not fully merged to dev. Keeping for manual resolution." Do NOT force-delete.
    If cleanup fails with other error: log warning but do not block execution.
 
    Branch cleanup is BEST EFFORT. Stale branches are informational, not harmful.
