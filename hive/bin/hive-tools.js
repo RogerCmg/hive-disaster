@@ -31,6 +31,9 @@
  *
  * Telemetry:
  *   telemetry emit <type> --data '{json}'  Emit telemetry event
+ *   telemetry query [--type X] [--since Y]  Query filtered events
+ *     [--limit N]
+ *   telemetry stats                         Show event summary
  *
  * Phase Operations:
  *   phase next-decimal <phase>         Calculate next decimal phase number
@@ -4308,6 +4311,79 @@ function cmdInitProgress(cwd, includes, raw) {
 
 // ─── Telemetry Commands ──────────────────────────────────────────────────────
 
+function cmdTelemetryQuery(cwd, options, raw) {
+  const eventsFile = path.join(cwd, '.planning', 'telemetry', 'events.jsonl');
+  const content = safeReadFile(eventsFile);
+  if (!content || !content.trim()) {
+    output({ events: [], total: 0 }, raw, 'No events');
+    return;
+  }
+
+  let events = content.split('\n').filter(Boolean).map(line => {
+    try { return JSON.parse(line); } catch { return null; }
+  }).filter(Boolean);
+
+  if (options.type) {
+    events = events.filter(e => e.type === options.type);
+  }
+
+  if (options.since) {
+    const sinceDate = parseSinceDuration(options.since);
+    if (!sinceDate) {
+      error('Invalid --since value: ' + options.since + '. Use: 7d, 24h, 30m, or ISO date');
+    }
+    events = events.filter(e => new Date(e.ts) >= sinceDate);
+  }
+
+  const limit = options.limit || 50;
+  events = events.slice(-limit);
+
+  output({ events, total: events.length }, raw, events.map(e => JSON.stringify(e)).join('\n'));
+}
+
+function cmdTelemetryStats(cwd, raw) {
+  const telemetryDir = path.join(cwd, '.planning', 'telemetry');
+  const eventsFile = path.join(telemetryDir, 'events.jsonl');
+
+  let fileSize = 0;
+  try {
+    fileSize = fs.statSync(eventsFile).size;
+  } catch {
+    // file doesn't exist
+  }
+
+  let archiveCount = 0;
+  try {
+    archiveCount = fs.readdirSync(telemetryDir)
+      .filter(f => f.startsWith('events-') && f.endsWith('.jsonl')).length;
+  } catch {
+    // dir doesn't exist
+  }
+
+  const content = safeReadFile(eventsFile);
+  const typeCounts = {};
+  let totalEvents = 0;
+  if (content && content.trim()) {
+    content.split('\n').filter(Boolean).forEach(line => {
+      try {
+        const evt = JSON.parse(line);
+        typeCounts[evt.type] = (typeCounts[evt.type] || 0) + 1;
+        totalEvents++;
+      } catch {
+        // skip malformed lines
+      }
+    });
+  }
+
+  output({
+    total_events: totalEvents,
+    file_size_bytes: fileSize,
+    file_size_kb: Math.round(fileSize / 1024 * 10) / 10,
+    archive_count: archiveCount,
+    types: typeCounts,
+  }, raw, `Events: ${totalEvents} | Size: ${Math.round(fileSize / 1024)}KB | Archives: ${archiveCount}`);
+}
+
 function cmdTelemetryEmit(cwd, type, dataStr, raw) {
   if (!type) {
     error('Event type required. Valid types: ' + VALID_EVENT_TYPES.join(', '));
@@ -4728,6 +4804,17 @@ async function main() {
         const dataIdx = args.indexOf('--data');
         const data = dataIdx !== -1 ? args[dataIdx + 1] : null;
         cmdTelemetryEmit(cwd, type, data, raw);
+      } else if (subcommand === 'query') {
+        const typeIdx = args.indexOf('--type');
+        const sinceIdx = args.indexOf('--since');
+        const limitIdx = args.indexOf('--limit');
+        cmdTelemetryQuery(cwd, {
+          type: typeIdx !== -1 ? args[typeIdx + 1] : null,
+          since: sinceIdx !== -1 ? args[sinceIdx + 1] : null,
+          limit: limitIdx !== -1 ? parseInt(args[limitIdx + 1], 10) : 50,
+        }, raw);
+      } else if (subcommand === 'stats') {
+        cmdTelemetryStats(cwd, raw);
       } else {
         error('Unknown telemetry subcommand: ' + (subcommand || '(none)') + '. Available: emit, query, digest, rotate, stats');
       }
