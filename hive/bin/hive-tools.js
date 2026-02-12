@@ -5545,6 +5545,339 @@ function cmdGitDeletePlanBranch(cwd, branchName, raw) {
   }
 }
 
+// ─── Merge Queue & Signal Helpers ─────────────────────────────────────────────
+
+function writeMergeSignal(cwd, planId, status, details) {
+  const signalsDir = path.join(cwd, '.hive-workers', 'signals');
+  fs.mkdirSync(signalsDir, { recursive: true });
+  const signalPath = path.join(signalsDir, 'merge-' + planId + '.result.json');
+  const data = Object.assign({ plan_id: planId, status: status }, details || {}, { timestamp: new Date().toISOString() });
+  atomicWriteFileSync(signalPath, JSON.stringify(data, null, 2));
+}
+
+function writeDevHeadSignal(cwd, sha, lastMerged) {
+  const signalsDir = path.join(cwd, '.hive-workers', 'signals');
+  fs.mkdirSync(signalsDir, { recursive: true });
+  const signalPath = path.join(signalsDir, 'dev-head.json');
+  const data = { sha: sha, updated_at: new Date().toISOString(), last_merged: lastMerged };
+  atomicWriteFileSync(signalPath, JSON.stringify(data, null, 2));
+}
+
+function ensureGitignoreHiveWorkers(cwd) {
+  const gitignorePath = path.join(cwd, '.gitignore');
+  let content = '';
+  try {
+    content = fs.readFileSync(gitignorePath, 'utf-8');
+  } catch {
+    // .gitignore doesn't exist yet
+  }
+  if (content.includes('.hive-workers/')) return;
+  const addition = '\n# Hive worker state (runtime, not committed)\n.hive-workers/\n';
+  fs.appendFileSync(gitignorePath, addition, 'utf-8');
+}
+
+function cmdGitQueueSubmit(cwd, options, raw) {
+  const config = loadConfig(cwd);
+  if (config.git_flow === 'none') {
+    output({ success: true, skipped: true, reason: 'git.flow is none' }, raw, 'skipped');
+    return;
+  }
+
+  const planId = options.plan_id;
+  const branch = options.branch;
+  if (!planId || !branch) {
+    output({ success: false, error: 'plan_id and branch required (--plan-id <id> --branch <name>)' }, raw, '');
+    return;
+  }
+
+  const queueDir = path.join(cwd, '.hive-workers');
+  fs.mkdirSync(queueDir, { recursive: true });
+  const queuePath = path.join(queueDir, 'merge-queue.json');
+
+  ensureGitignoreHiveWorkers(cwd);
+
+  const result = withFileLock(queuePath, () => {
+    let data = { queue: [], merged: [], dev_head: null, last_updated: null };
+    try {
+      const raw = safeReadFile(queuePath);
+      if (raw) data = JSON.parse(raw);
+    } catch {
+      // corrupt or missing — use defaults
+    }
+
+    const allCount = (data.queue || []).length + (data.merged || []).length;
+    const id = 'mr-' + String(allCount + 1).padStart(3, '0');
+
+    const planParts = planId.split('-');
+    const phase = planParts[0] || planId;
+    const plan = planParts[1] || planId;
+
+    const entry = {
+      id: id,
+      plan_id: planId,
+      phase: phase,
+      plan: plan,
+      branch: branch,
+      wave: parseInt(options.wave, 10) || 1,
+      status: 'pending',
+      submitted_at: new Date().toISOString(),
+      pr_number: options.pr_number ? parseInt(options.pr_number, 10) : null,
+      pr_url: options.pr_url || null,
+      checks: { conflicts: null, build: null },
+      error: null,
+      merged_at: null,
+    };
+
+    if (!data.queue) data.queue = [];
+    data.queue.push(entry);
+    data.last_updated = new Date().toISOString();
+    atomicWriteFileSync(queuePath, JSON.stringify(data, null, 2));
+
+    return { success: true, id: id, plan_id: planId };
+  });
+
+  output(result, raw, result.id);
+}
+
+function cmdGitQueueStatus(cwd, raw) {
+  const config = loadConfig(cwd);
+  if (config.git_flow === 'none') {
+    output({ success: true, skipped: true, reason: 'git.flow is none' }, raw, 'skipped');
+    return;
+  }
+
+  const queuePath = path.join(cwd, '.hive-workers', 'merge-queue.json');
+  let data;
+  try {
+    const content = safeReadFile(queuePath);
+    if (!content) throw new Error('missing');
+    data = JSON.parse(content);
+  } catch {
+    output({ success: true, empty: true, queue: [], merged: [], dev_head: null }, raw, 'empty');
+    return;
+  }
+
+  const queue = data.queue || [];
+  const merged = data.merged || [];
+  const pending = queue.filter(e => e.status === 'pending');
+  const inProgress = queue.filter(e => ['checking', 'building', 'merging'].includes(e.status));
+  const failed = queue.filter(e => ['conflict', 'build_failed', 'merge_failed'].includes(e.status));
+
+  output({
+    success: true,
+    pending_count: pending.length,
+    in_progress_count: inProgress.length,
+    failed_count: failed.length,
+    merged_count: merged.length,
+    dev_head: data.dev_head || null,
+    last_updated: data.last_updated || null,
+    pending: pending,
+    failed: failed,
+  }, raw, JSON.stringify({ pending_count: pending.length, failed_count: failed.length, merged_count: merged.length }));
+}
+
+function cmdGitQueueUpdate(cwd, options, raw) {
+  const config = loadConfig(cwd);
+  if (config.git_flow === 'none') {
+    output({ success: true, skipped: true, reason: 'git.flow is none' }, raw, 'skipped');
+    return;
+  }
+
+  const entryId = options.id;
+  const newStatus = options.status;
+  if (!entryId) {
+    output({ success: false, error: 'id required (--id <entry-id>)' }, raw, '');
+    return;
+  }
+
+  const queueDir = path.join(cwd, '.hive-workers');
+  fs.mkdirSync(queueDir, { recursive: true });
+  const queuePath = path.join(queueDir, 'merge-queue.json');
+
+  const result = withFileLock(queuePath, () => {
+    let data = { queue: [], merged: [], dev_head: null, last_updated: null };
+    try {
+      const raw = safeReadFile(queuePath);
+      if (raw) data = JSON.parse(raw);
+    } catch {
+      // corrupt — use defaults
+    }
+
+    const queue = data.queue || [];
+    const idx = queue.findIndex(e => e.id === entryId);
+    if (idx === -1) {
+      return { success: false, error: 'entry not found: ' + entryId };
+    }
+
+    const entry = queue[idx];
+    if (newStatus) entry.status = newStatus;
+    if (options.error) entry.error = options.error;
+    if (options.merge_sha) entry.merge_sha = options.merge_sha;
+    if (options.pr_number) entry.pr_number = parseInt(options.pr_number, 10);
+    if (options.pr_url) entry.pr_url = options.pr_url;
+
+    const terminalStatuses = ['merged', 'conflict', 'build_failed', 'merge_failed'];
+
+    if (newStatus === 'merged') {
+      entry.merged_at = new Date().toISOString();
+      const mergedEntry = {
+        id: entry.id,
+        plan_id: entry.plan_id,
+        branch: entry.branch,
+        merged_at: entry.merged_at,
+        merge_sha: options.merge_sha || null,
+      };
+      if (!data.merged) data.merged = [];
+      data.merged.push(mergedEntry);
+      // Cap merged array at 50 entries (remove oldest)
+      if (data.merged.length > 50) {
+        data.merged = data.merged.slice(data.merged.length - 50);
+      }
+      // Remove from queue
+      queue.splice(idx, 1);
+      // Update dev_head
+      if (options.merge_sha) {
+        data.dev_head = options.merge_sha;
+      }
+    }
+
+    data.queue = queue;
+    data.last_updated = new Date().toISOString();
+    atomicWriteFileSync(queuePath, JSON.stringify(data, null, 2));
+
+    // Write signal files for terminal status changes
+    if (newStatus && terminalStatuses.includes(newStatus)) {
+      writeMergeSignal(cwd, entry.plan_id, newStatus, {
+        error: options.error || null,
+        merge_sha: options.merge_sha || null,
+        pr_number: entry.pr_number || null,
+      });
+    }
+    if (newStatus === 'merged' && options.merge_sha) {
+      writeDevHeadSignal(cwd, options.merge_sha, entry.plan_id);
+    }
+
+    return { success: true, id: entryId, status: newStatus || entry.status };
+  });
+
+  output(result, raw, result.success ? result.id : '');
+}
+
+function cmdGitQueueDrain(cwd, raw) {
+  const config = loadConfig(cwd);
+  if (config.git_flow === 'none') {
+    output({ success: true, skipped: true, reason: 'git.flow is none' }, raw, 'skipped');
+    return;
+  }
+
+  const queueDir = path.join(cwd, '.hive-workers');
+  fs.mkdirSync(queueDir, { recursive: true });
+  const queuePath = path.join(queueDir, 'merge-queue.json');
+
+  const result = withFileLock(queuePath, () => {
+    let data = { queue: [], merged: [], dev_head: null, last_updated: null };
+    try {
+      const content = safeReadFile(queuePath);
+      if (content) data = JSON.parse(content);
+    } catch {
+      // corrupt — use defaults
+    }
+
+    const queue = data.queue || [];
+    const terminalStatuses = ['merged', 'conflict', 'build_failed', 'merge_failed'];
+    const toDrain = queue.filter(e => terminalStatuses.includes(e.status));
+    const remaining = queue.filter(e => !terminalStatuses.includes(e.status));
+
+    // Clean up signal files for drained entries
+    const signalsDir = path.join(cwd, '.hive-workers', 'signals');
+    for (const entry of toDrain) {
+      const signalPath = path.join(signalsDir, 'merge-' + entry.plan_id + '.result.json');
+      try {
+        fs.unlinkSync(signalPath);
+      } catch {
+        // signal file may not exist — best-effort
+      }
+    }
+
+    data.queue = remaining;
+    data.last_updated = new Date().toISOString();
+    atomicWriteFileSync(queuePath, JSON.stringify(data, null, 2));
+
+    return { success: true, drained_count: toDrain.length, remaining_count: remaining.length };
+  });
+
+  output(result, raw, String(result.drained_count));
+}
+
+// ─── Gate 2: Pre-merge Build Validation ───────────────────────────────────────
+
+function cmdGitRunGate2(cwd, branchName, raw) {
+  const config = loadConfig(cwd);
+  if (config.git_flow === 'none') {
+    output({ success: true, skipped: true, reason: 'git.flow is none' }, raw, 'skipped');
+    return;
+  }
+
+  if (!branchName) {
+    output({ success: false, error: 'branch name required (--branch <name>)' }, raw, '');
+    return;
+  }
+
+  if (!config.git_build_gates_pre_merge) {
+    output({ success: true, skipped: true, reason: 'pre_merge gate disabled' }, raw, 'skipped');
+    return;
+  }
+
+  const devBranch = config.git_dev_branch || 'dev';
+
+  // Checkout dev branch
+  const checkoutResult = execCommand('git', ['checkout', devBranch], { cwd });
+  if (!checkoutResult.success) {
+    output({ success: false, gate: 'pre_merge', error: 'checkout_failed', branch: devBranch, stderr: checkoutResult.stderr.slice(0, 2000) }, raw, '');
+    return;
+  }
+
+  // Crash recovery: abort any leftover merge state
+  execCommand('git', ['merge', '--abort'], { cwd });
+
+  // Attempt no-commit merge
+  const mergeResult = execCommand('git', ['merge', '--no-commit', '--no-ff', branchName], { cwd });
+  if (!mergeResult.success) {
+    execCommand('git', ['merge', '--abort'], { cwd });
+    output({ success: false, gate: 'pre_merge', error: 'merge_conflict', branch: branchName, stderr: mergeResult.stderr.slice(0, 2000) }, raw, '');
+    return;
+  }
+
+  // Detect build command
+  const buildCmd = config.git_build_command || detectBuildCommand(cwd).command;
+  if (!buildCmd) {
+    execCommand('git', ['merge', '--abort'], { cwd });
+    output({ success: true, gate: 'pre_merge', skipped: true, reason: 'no build command' }, raw, 'skipped');
+    return;
+  }
+
+  // Run build inside try/finally — ALWAYS abort merge after
+  const timeoutMs = (config.git_build_timeout || 300) * 1000;
+  let buildResult;
+  try {
+    const parts = buildCmd.split(/\s+/);
+    buildResult = execCommand(parts[0], parts.slice(1), { cwd, timeout: timeoutMs });
+  } finally {
+    execCommand('git', ['merge', '--abort'], { cwd });
+  }
+
+  output({
+    success: buildResult.success,
+    gate: 'pre_merge',
+    branch: branchName,
+    command: buildCmd,
+    exitCode: buildResult.exitCode,
+    timedOut: buildResult.timedOut || false,
+    stdout: buildResult.stdout.slice(0, 2000),
+    stderr: buildResult.stderr.slice(0, 2000),
+  }, raw, buildResult.success ? 'pass' : 'fail');
+}
+
 // ─── CLI Router ───────────────────────────────────────────────────────────────
 
 async function main() {
@@ -5999,8 +6332,44 @@ async function main() {
         cmdGitCheckConflicts(cwd, conflictBranch, raw);
       } else if (subcommand === 'delete-plan-branch') {
         cmdGitDeletePlanBranch(cwd, args[2], raw);
+      } else if (subcommand === 'queue-submit') {
+        const planIdIdx = args.indexOf('--plan-id');
+        const branchIdx = args.indexOf('--branch');
+        const waveIdx = args.indexOf('--wave');
+        const prNumIdx = args.indexOf('--pr-number');
+        const prUrlIdx = args.indexOf('--pr-url');
+        cmdGitQueueSubmit(cwd, {
+          plan_id: planIdIdx !== -1 ? args[planIdIdx + 1] : null,
+          branch: branchIdx !== -1 ? args[branchIdx + 1] : null,
+          wave: waveIdx !== -1 ? args[waveIdx + 1] : null,
+          pr_number: prNumIdx !== -1 ? args[prNumIdx + 1] : null,
+          pr_url: prUrlIdx !== -1 ? args[prUrlIdx + 1] : null,
+        }, raw);
+      } else if (subcommand === 'queue-status') {
+        cmdGitQueueStatus(cwd, raw);
+      } else if (subcommand === 'queue-update') {
+        const idIdx = args.indexOf('--id');
+        const statusIdx = args.indexOf('--status');
+        const errorIdx = args.indexOf('--error');
+        const mergeShaIdx = args.indexOf('--merge-sha');
+        const prNumIdx = args.indexOf('--pr-number');
+        const prUrlIdx = args.indexOf('--pr-url');
+        cmdGitQueueUpdate(cwd, {
+          id: idIdx !== -1 ? args[idIdx + 1] : null,
+          status: statusIdx !== -1 ? args[statusIdx + 1] : null,
+          error: errorIdx !== -1 ? args[errorIdx + 1] : null,
+          merge_sha: mergeShaIdx !== -1 ? args[mergeShaIdx + 1] : null,
+          pr_number: prNumIdx !== -1 ? args[prNumIdx + 1] : null,
+          pr_url: prUrlIdx !== -1 ? args[prUrlIdx + 1] : null,
+        }, raw);
+      } else if (subcommand === 'queue-drain') {
+        cmdGitQueueDrain(cwd, raw);
+      } else if (subcommand === 'run-gate-2') {
+        const branchIdx = args.indexOf('--branch');
+        const g2Branch = branchIdx !== -1 ? args[branchIdx + 1] : null;
+        cmdGitRunGate2(cwd, g2Branch, raw);
       } else {
-        error('Unknown git subcommand: ' + (subcommand || '(none)') + '. Available: detect, detect-build-cmd, current-branch, git-status, create-dev-branch, create-plan-branch, run-build-gate, create-pr, self-merge-pr, merge-dev-to-main, check-conflicts, delete-plan-branch');
+        error('Unknown git subcommand: ' + (subcommand || '(none)') + '. Available: detect, detect-build-cmd, current-branch, git-status, create-dev-branch, create-plan-branch, run-build-gate, create-pr, self-merge-pr, merge-dev-to-main, check-conflicts, delete-plan-branch, queue-submit, queue-status, queue-update, queue-drain, run-gate-2');
       }
       break;
     }
