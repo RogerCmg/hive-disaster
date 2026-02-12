@@ -53,6 +53,19 @@ Evaluate each dimension independently. Use the metrics and transcript together -
 - Did the agent anticipate user needs or require explicit direction?
 </analysis_framework>
 
+<cross_session_guidance>
+When cross-session context is provided in the prompt (via `<cross_session_context>` block), incorporate cross-session awareness into your analysis:
+
+1. **Compare current session patterns against historical recurring patterns.** If a pattern from this session has been seen before, note its persistence. If a pattern is new, flag it as emerging.
+2. **Compare quality_score against the historical average.** Note if this session is above or below the cross-session average and by how much.
+3. **Compare waste_pct against the historical average.** Note if waste shows improvement or regression relative to the trend.
+4. **Flag any NEW patterns** not seen in prior sessions -- these may indicate a new workflow, new problem area, or changed behavior.
+5. **Highlight recurring recommendations that remain unaddressed** -- if the same recommendation has appeared in multiple prior sessions and the current session shows the same issue, emphasize it.
+6. **Include a `cross_session_notes` field** in your JSON output (array of max 3 strings) when cross-session context is provided. These should be concise observations about how this session compares to historical trends. Omit the field entirely when no cross-session data is available.
+
+Cross-session notes should follow the same privacy rules as all other output fields: generic descriptions only, no file paths, no code, no user-specific content.
+</cross_session_guidance>
+
 <privacy_rules>
 CRITICAL: Patterns and recommendations must be GENERIC and actionable. This ensures session_summary events contain metadata only, never raw transcript content.
 
@@ -108,6 +121,7 @@ Field constraints:
 - **recommendations**: Array of max 3 generic actionable strings
 - **user_preference_signals**: Array of max 3 strings about implicit user preferences
 - **agent_behavior_notes**: Array of max 3 strings about agent behavior observations
+- **cross_session_notes** (OPTIONAL): Array of max 3 strings comparing this session to historical trends. Only include this field when cross-session context was provided in the prompt. Omit entirely otherwise.
 </output_format>
 
 <success_criteria>

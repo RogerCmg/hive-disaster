@@ -43,6 +43,18 @@ Display summary to user:
 If the command errors (no transcript found, session too short, analysis disabled), display the error and end.
 </step>
 
+<step name="query_cross_session">
+Query cross-session pattern data from accumulated session_summary events:
+
+```bash
+node ./.claude/hive/bin/hive-tools.js telemetry transcript --cross-session --raw 2>/dev/null
+```
+
+If this succeeds (exit code 0) and returns valid JSON, store the cross-session data for use in the analyze and report steps.
+
+If it fails (not enough session_summary events, config disabled, any error), set cross-session data to null and continue. This step is NON-BLOCKING -- cross-session analysis is a bonus enhancement, not a requirement. The workflow must always proceed to single-session analysis regardless.
+</step>
+
 <step name="analyze">
 Spawn the `hive-recall-analyst` agent via Task():
 
@@ -51,6 +63,26 @@ In the Task prompt, include:
 2. The metrics: token counts, tool usage counts, tool error count
 3. Telemetry stats context: run `node ./.claude/hive/bin/hive-tools.js telemetry stats --raw` and include the event counts so the analyst has quantitative context about the project's telemetry history
 
+If cross-session data is available from the query_cross_session step, also include it in the prompt:
+
+```
+<cross_session_context>
+Quality trend: {quality_trend} (avg: {avg_quality})
+Waste trend: {waste_trend} (avg: {avg_waste})
+Recurring patterns (seen in multiple sessions):
+- {pattern} (seen {count} times)
+...
+Recurring recommendations:
+- {recommendation} (seen {count} times)
+...
+User preferences across sessions:
+- {preference} (seen {count} times)
+...
+</cross_session_context>
+
+Consider these cross-session trends when analyzing the current session. Note if current session patterns align with or diverge from historical trends.
+```
+
 The agent will return a JSON code block with:
 - `quality_score` (0-100)
 - `waste_pct` (0-100)
@@ -58,6 +90,7 @@ The agent will return a JSON code block with:
 - `recommendations` (array, max 3)
 - `user_preference_signals` (array, max 3)
 - `agent_behavior_notes` (array, max 3)
+- `cross_session_notes` (array, max 3 -- only present when cross-session context was provided)
 
 Parse the JSON from the agent's response. If parsing fails, display the raw response and ask the user if they want to retry.
 </step>
@@ -109,6 +142,24 @@ Display the analysis results to the user in a readable format:
 
 **Agent Behavior Notes:**
 {numbered list of agent_behavior_notes}
+
+If cross-session data was available from the query_cross_session step, also display:
+
+**Cross-Session Trends**
+- **Quality Trend:** {quality_trend} (average: {avg_quality}/100)
+- **Waste Trend:** {waste_trend} (average: {avg_waste}%)
+- **Sessions Analyzed:** {sessions_analyzed} (window: {window_size})
+
+If any recurring patterns from cross-session data also appeared in this session's patterns, highlight them:
+- "Recurring: {pattern} (seen in {count} prior sessions)"
+
+If there are recurring unaddressed recommendations, list them:
+- "Unaddressed: {recommendation} (seen {count} times)"
+
+If the analyst included `cross_session_notes`, display them:
+
+**Cross-Session Notes:**
+{numbered list of cross_session_notes}
 
 ---
 
