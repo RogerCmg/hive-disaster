@@ -852,7 +852,11 @@ function uninstall(isGlobal, runtime = 'claude') {
   // 4. Remove Hive hooks
   const hooksDir = path.join(targetDir, 'hooks');
   if (fs.existsSync(hooksDir)) {
-    const gsdHooks = ['hive-statusline.js', 'hive-check-update.js', 'hive-check-update.sh'];
+    const gsdHooks = [
+      'hive-statusline.js', 'hive-check-update.js', 'hive-check-update.sh',
+      'hive-recall-agent.js', 'hive-recall-error.js',
+      'hive-recall-compact.js', 'hive-recall-session.js'
+    ];
     let hookCount = 0;
     for (const hook of gsdHooks) {
       const hookPath = path.join(hooksDir, hook);
@@ -881,27 +885,37 @@ function uninstall(isGlobal, runtime = 'claude') {
       console.log(`  ${green}✓${reset} Removed Hive statusline from settings`);
     }
 
-    // Remove Hive hooks from SessionStart
-    if (settings.hooks && settings.hooks.SessionStart) {
-      const before = settings.hooks.SessionStart.length;
-      settings.hooks.SessionStart = settings.hooks.SessionStart.filter(entry => {
-        if (entry.hooks && Array.isArray(entry.hooks)) {
-          // Filter out Hive hooks
-          const hasGsdHook = entry.hooks.some(h =>
-            h.command && (h.command.includes('hive-check-update') || h.command.includes('hive-statusline'))
-          );
-          return !hasGsdHook;
+    // Remove Hive hooks from all event types
+    if (settings.hooks) {
+      const hiveHookPatterns = ['hive-check-update', 'hive-statusline', 'hive-recall'];
+      let hooksRemoved = false;
+
+      for (const eventType of Object.keys(settings.hooks)) {
+        if (Array.isArray(settings.hooks[eventType])) {
+          const before = settings.hooks[eventType].length;
+          settings.hooks[eventType] = settings.hooks[eventType].filter(entry => {
+            if (entry.hooks && Array.isArray(entry.hooks)) {
+              return !entry.hooks.some(h =>
+                h.command && hiveHookPatterns.some(pattern => h.command.includes(pattern))
+              );
+            }
+            return true;
+          });
+          if (settings.hooks[eventType].length < before) {
+            hooksRemoved = true;
+          }
+          // Clean up empty arrays
+          if (settings.hooks[eventType].length === 0) {
+            delete settings.hooks[eventType];
+          }
         }
-        return true;
-      });
-      if (settings.hooks.SessionStart.length < before) {
+      }
+
+      if (hooksRemoved) {
         settingsModified = true;
         console.log(`  ${green}✓${reset} Removed Hive hooks from settings`);
       }
-      // Clean up empty array
-      if (settings.hooks.SessionStart.length === 0) {
-        delete settings.hooks.SessionStart;
-      }
+
       // Clean up empty hooks object
       if (Object.keys(settings.hooks).length === 0) {
         delete settings.hooks;
@@ -1476,6 +1490,37 @@ function install(isGlobal, runtime = 'claude') {
       });
       console.log(`  ${green}✓${reset} Configured update check hook`);
     }
+
+    // ── Recall Hook Registration ──
+    const recallHooks = [
+      { event: 'SubagentStop', file: 'hive-recall-agent.js', args: '' },
+      { event: 'PostToolUseFailure', file: 'hive-recall-error.js', args: '' },
+      { event: 'PreCompact', file: 'hive-recall-compact.js', args: '' },
+      { event: 'SessionStart', file: 'hive-recall-session.js', args: ' start' },
+      { event: 'SessionEnd', file: 'hive-recall-session.js', args: ' end' },
+    ];
+
+    for (const { event, file, args } of recallHooks) {
+      const command = isGlobal
+        ? buildHookCommand(targetDir, file) + args
+        : 'node ' + dirName + '/hooks/' + file + args;
+
+      if (!settings.hooks[event]) {
+        settings.hooks[event] = [];
+      }
+
+      const alreadyRegistered = settings.hooks[event].some(entry =>
+        entry.hooks && entry.hooks.some(h => h.command && h.command.includes(file))
+      );
+
+      if (!alreadyRegistered) {
+        settings.hooks[event].push({
+          hooks: [{ type: 'command', command }]
+        });
+      }
+    }
+
+    console.log(`  ${green}✓${reset} Configured Recall hooks`);
   }
 
   // Write file manifest for future modification detection
