@@ -13,7 +13,7 @@ Hive Recall gives agents persistent memory across sessions by observing executio
 Decimal phases appear between their surrounding integers in numeric order.
 
 - [x] **Phase 1: Core Infrastructure** - Event storage backbone, CLI commands, config, and rotation
-- [ ] **Phase 2: Hook Observers** - Passive automatic capture of agent lifecycle events
+- [x] **Phase 2: Hook Observers** - Passive automatic capture of agent lifecycle events
 - [ ] **Phase 3: Workflow Integration** - Semantic event capture at workflow decision points
 - [ ] **Phase 4: Feedback Loop** - Digest generation, insight injection into agent context, /hive:insights command
 - [ ] **Phase 5: Installation Integration** - Hook registration and config setup during npx hive-cc install
@@ -120,7 +120,7 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Core Infrastructure | 3/3 | Complete ✓ | 2026-02-12 |
-| 2. Hook Observers | 0/2 | Not started | - |
+| 2. Hook Observers | 2/2 | Complete ✓ | 2026-02-12 |
 | 3. Workflow Integration | 0/2 | Not started | - |
 | 4. Feedback Loop | 0/3 | Not started | - |
 | 5. Installation Integration | 0/1 | Not started | - |
@@ -128,4 +128,4 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6
 
 ---
 *Roadmap created: 2026-02-11*
-*Last updated: 2026-02-12*
+*Last updated: 2026-02-11*
