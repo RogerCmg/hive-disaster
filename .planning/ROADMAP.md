@@ -69,7 +69,11 @@
   3. Execute-phase creates plan branches per wave and deletes them after successful merge — no stale branches accumulate
   4. Running `/hive:complete-milestone` triggers a dev-to-main merge flow (Gate 3 check included)
   5. Progress display shows current git branch, ahead/behind status, and open PR count
-**Plans**: TBD
+**Plans**: 3 plans
+Plans:
+  - [ ] 10-01-PLAN.md — PR creation and self-merge in execute-plan workflow
+  - [ ] 10-02-PLAN.md — Branch cleanup in execute-phase and dev-to-main merge in complete-milestone
+  - [ ] 10-03-PLAN.md — Git status subcommand and progress display integration
 
 ### Phase 11: Repo Manager
 **Goal**: A dedicated agent manages merge ordering, conflict detection, and integration testing so parallel plan merges never break dev
@@ -98,7 +102,7 @@
 | 7. Close Integration Gaps | v1.0 | 1/1 | Complete | 2026-02-12 |
 | 8. Safety & Configuration | v2.0 | 2/2 | Complete | 2026-02-12 |
 | 9. Branch Lifecycle & Build Gates | v2.0 | 2/2 | Complete | 2026-02-12 |
-| 10. PR & Workflow Integration | v2.0 | 0/TBD | Not started | - |
+| 10. PR & Workflow Integration | v2.0 | 0/3 | Not started | - |
 | 11. Repo Manager | v2.0 | 0/TBD | Not started | - |
 
 ---
