@@ -106,11 +106,11 @@ Plans:
   1. The `hive-recall-analyst` agent can parse a session transcript and produce a `session_summary` event with quality score, waste percentage, and concrete recommendations
   2. The analyst detects cross-session patterns: recurring failures, implicit user preferences, and agent behavior drift across multiple session summaries
   3. Transcript analysis is off by default (`transcript_analysis: false` in config) and runs only when explicitly invoked
-**Plans**: TBD
+**Plans:** 2 plans
 
 Plans:
-- [ ] 06-01: Recall analyst agent definition and session summary event (TRANS-01, TRANS-02)
-- [ ] 06-02: Cross-session pattern detection (TRANS-03)
+- [ ] 06-01-PLAN.md -- Transcript CLI extraction, recall analyst agent, analyze-session command/workflow (TRANS-01, TRANS-02)
+- [ ] 06-02-PLAN.md -- Cross-session pattern detection and trend analysis (TRANS-03)
 
 ## Progress
 
