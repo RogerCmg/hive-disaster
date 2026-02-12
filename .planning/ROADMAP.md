@@ -18,6 +18,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 4: Feedback Loop** - Digest generation, insight injection into agent context, /hive:insights command
 - [x] **Phase 5: Installation Integration** - Hook registration and config setup during npx hive-cc install
 - [x] **Phase 6: Transcript Analysis** - Deep post-hoc session analysis agent and cross-session pattern detection
+- [ ] **Phase 7: Close Integration Gaps** - Wire session_summary into digest, add recall to execute-plan, sync requirement checkboxes
 
 ## Phase Details
 
@@ -112,6 +113,21 @@ Plans:
 - [x] 06-01-PLAN.md -- Transcript CLI extraction, recall analyst agent, analyze-session command/workflow (TRANS-01, TRANS-02)
 - [x] 06-02-PLAN.md -- Cross-session pattern detection and trend analysis (TRANS-03)
 
+### Phase 7: Close Integration Gaps
+**Goal**: All cross-phase integration connections are wired (30/30), the session analysis feedback loop works end-to-end, and REQUIREMENTS.md reflects verified completion status
+**Depends on**: Phase 6 (audit identified gaps after all phases complete)
+**Requirements**: Closes audit gaps — no new requirements, strengthens FEED-01, FEED-03
+**Gap Closure:** Closes gaps from v1.0 milestone audit
+**Success Criteria** (what must be TRUE):
+  1. Running `hive-tools.js telemetry digest` after session_summary events exist produces INSIGHTS.md that includes session analysis patterns and recommendations
+  2. The `execute-plan.md` workflow extracts recall_context and passes a `<recall>` block to spawned executor agents
+  3. All 34 requirement checkboxes in REQUIREMENTS.md show `[x]` matching their verified status
+  4. Flow 2 (Session Analysis) works end-to-end: session_summary → digest → recall_context → future agents
+**Plans:** TBD (1 plan expected)
+
+Plans:
+- [ ] 07-01-PLAN.md -- Wire session_summary into digest, add recall to execute-plan, sync checkboxes
+
 ## Progress
 
 **Execution Order:**
@@ -125,6 +141,7 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6
 | 4. Feedback Loop | 3/3 | Complete ✓ | 2026-02-12 |
 | 5. Installation Integration | 1/1 | Complete ✓ | 2026-02-12 |
 | 6. Transcript Analysis | 2/2 | Complete ✓ | 2026-02-12 |
+| 7. Close Integration Gaps | 0/1 | Pending | — |
 
 ---
 *Roadmap created: 2026-02-11*
