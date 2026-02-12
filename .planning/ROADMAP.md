@@ -78,12 +78,12 @@ Plans:
   2. Init commands return a `recall_context` field containing top patterns extracted from INSIGHTS.md, which agents receive as a `<recall>` block in their prompts
   3. Running `/hive:insights` displays current project insights and offers to regenerate the digest
   4. `events.jsonl` is gitignored (raw data stays local) while `INSIGHTS.md` is committed to git (shareable project wisdom)
-**Plans**: TBD
+**Plans:** 3 plans
 
 Plans:
-- [ ] 04-01: Enhanced digest generation and INSIGHTS.md format (FEED-01, FEED-05, FEED-06)
-- [ ] 04-02: Recall injection into init commands and agent prompts (FEED-02, FEED-03)
-- [ ] 04-03: /hive:insights command and workflow (FEED-04)
+- [ ] 04-01-PLAN.md -- Enhanced digest with pattern detection, recall context helper, init command injection (FEED-01, FEED-02, FEED-05, FEED-06)
+- [ ] 04-02-PLAN.md -- Workflow recall block injection in 10 agent-spawning workflows (FEED-03)
+- [ ] 04-03-PLAN.md -- /hive:insights slash command and workflow (FEED-04)
 
 ### Phase 5: Installation Integration
 **Goal**: Running `npx hive-cc` installs all Recall hooks and config automatically so users get telemetry out of the box
