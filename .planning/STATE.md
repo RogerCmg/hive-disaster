@@ -10,9 +10,9 @@ See: .planning/PROJECT.md (updated 2026-02-12)
 ## Current Position
 
 Phase: 11 of 11 (Repo Manager)
-Plan: 1 of 3 in current phase
+Plan: 3 of 3 in current phase
 Status: Executing
-Last activity: 2026-02-12 — Plan 11-01 complete (merge queue + gate 2)
+Last activity: 2026-02-12 — Plan 11-03 complete (queue submission integration)
 
 Progress: [█████████░] 90%
 
@@ -39,6 +39,7 @@ Progress: [█████████░] 90%
 - 10-02: 4min, 2 tasks, 2 files
 - 10-03: 2min, 2 tasks, 2 files
 - 11-01: 4min, 2 tasks, 2 files
+- 11-03: 2min, 2 tasks, 2 files
 - Trend: Stable (sub-5min per plan)
 
 *Updated after each plan completion*
@@ -74,6 +75,8 @@ Recent decisions affecting current work:
 - [Phase 11]: Queue entries use mr-NNN IDs, merged array capped at 50
 - [Phase 11]: Signal files written atomically on terminal status changes
 - [Phase 11]: Gate 2 always aborts merge in finally block, crash recovery aborts leftovers
+- [Phase 11]: repo_manager defaults to false (opt-in), queue failure falls back to self-merge
+- [Phase 11]: Queued plans skip self-merge and dev checkout, repo manager handles lifecycle
 
 ### Pending Todos
 
@@ -86,5 +89,5 @@ None.
 ## Session Continuity
 
 **Last session:** 2026-02-12
-**Stopped at:** Completed 11-01-PLAN.md (merge queue + gate 2)
-**Resume file:** Plan 11-01 complete. Next: 11-02 (repo manager agent)
+**Stopped at:** Completed 11-03-PLAN.md (queue submission integration)
+**Resume file:** Plan 11-03 complete. Next: 11-02 (repo manager agent)
