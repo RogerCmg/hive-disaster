@@ -4,30 +4,25 @@
 
 See: .planning/PROJECT.md (updated 2026-02-12)
 
-**Core value:** Persistent memory across sessions -- agents learn from past failures without breaking fresh-context architecture
-**Current focus:** v1.0 milestone shipped. Planning next milestone.
+**Core value:** Safe path from plan to merged code — quality scales with parallelism
+**Current focus:** v2.0 Hive Pro Git Flow
 
 ## Current Position
 
-**Milestone:** v1.0 Hive Recall — SHIPPED 2026-02-12
-**Status:** Milestone complete — archived to .planning/milestones/
-**Last Activity:** 2026-02-12
-
-**Progress:** [██████████] 100%
-
-## Performance Metrics
-
-**v1.0 Summary:**
-- Phases: 7 | Plans: 14
-- Commits: 72 | Files: 219 | Lines: +33,395
-- Timeline: ~7 hours
-- Requirements: 34/34 | Truths: 68/68
+Phase: Not started (defining requirements)
+Plan: —
+Status: Defining requirements
+Last activity: 2026-02-12 — Milestone v2.0 started
 
 ## Accumulated Context
 
 ### Decisions
 
-All v1.0 decisions archived in PROJECT.md Key Decisions table.
+- Foundation first: single-terminal + repo manager before multi-terminal
+- Build gates always on by default, user disables if needed
+- Merge commit (--no-ff) to preserve per-task granularity
+- Concurrency locks (flock + atomic writes) as prerequisite
+- Research completed: `.planning/research/GIT-WORKFLOW-RECOMMENDATIONS.md`
 
 ### Pending Todos
 
@@ -40,5 +35,5 @@ None.
 ## Session Continuity
 
 **Last session:** 2026-02-12
-**Stopped at:** v1.0 milestone completion
+**Stopped at:** v2.0 milestone initialization
 **Resume file:** None

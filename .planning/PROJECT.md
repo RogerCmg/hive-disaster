@@ -1,12 +1,12 @@
-# Hive Recall — Self-Improvement Through Observation
+# Hive — Spec-Driven Development System for AI Agents
 
 ## What This Is
 
-Hive Recall is a lightweight telemetry and insight system for the Hive plugin. It passively observes agent execution across 4 hook observers and 13 workflow emit points, records structured events in JSONL format, distills patterns into actionable insights, and feeds them back into future agent sessions via `<recall>` blocks. Shipped as v1.0 with zero runtime dependencies and full backward compatibility.
+Hive is a meta-prompting and context engineering system for Claude Code. It orchestrates AI agents through spec-driven workflows (commands → workflows → agents → tools), manages project state via markdown artifacts in `.planning/`, and executes phased roadmaps with wave-based parallelization. v1.0 added persistent memory via telemetry/recall. v2.0 adds professional git workflow — dev branch, plan-level branching, build gates, PR-based integration, and a repo manager.
 
 ## Core Value
 
-Give Hive persistent memory across sessions so agents learn from past failures, deviations, and user corrections — without breaking the fresh-context architecture or adding dependencies.
+Give AI agents a structured, safe path from plan to merged code — so quality scales with parallelism instead of degrading.
 
 ## Requirements
 
@@ -37,32 +37,48 @@ Give Hive persistent memory across sessions so agents learn from past failures, 
 
 ### Active
 
-(Empty — next milestone will define new requirements via `/hive:new-milestone`)
+(Defined in REQUIREMENTS.md for v2.0)
 
 ### Out of Scope
 
 - SQLite or database storage — learned from removed intel system (v1.9.2), must stay file-based
 - Runtime dependencies — zero-dep philosophy is non-negotiable
 - Real-time dashboards — CLI-only, markdown digest is sufficient
-- Cross-project global insights — deferred to future milestone (CROSS-01, CROSS-02, CROSS-03 in v2 backlog)
-- Auto-suggestion when deviation thresholds exceeded — deferred (AUTO-01, AUTO-02 in v2 backlog)
+- Cross-project global insights — deferred (CROSS-01, CROSS-02, CROSS-03)
+- Auto-suggestion when deviation thresholds exceeded — deferred (AUTO-01, AUTO-02)
+- Git worktrees / multi-terminal orchestration — deferred to v2.1+
+- Worker registry and /hive:start-worker — deferred to v2.1+
+- Continuous conflict monitoring (Clash-style) — deferred to v2.1+
+- Dynamic worker assignment — deferred to v2.1+
+
+## Current Milestone: v2.0 Hive Pro Git Flow
+
+**Goal:** Give Hive a professional git workflow — dev branch, plan-level branching, build gates, PR-based integration, and a repo manager — so code flows safely from agents to main.
+
+**Target features:**
+- Atomic file writes with flock for concurrency safety
+- Dev branch creation during project/milestone init
+- Plan-level branching (extends existing branching_strategy)
+- Build command auto-detection and 3-gate validation
+- PR creation and self-merge for single-terminal mode
+- Merge queue and repo manager agent for coordinated merges
+- Git status display in progress output
 
 ## Context
 
 Shipped v1.0 Hive Recall with ~5,500 lines across 219 files (Node.js, Markdown).
 Tech stack: Pure Node.js stdlib (fs, path, JSON) — zero runtime dependencies.
-Architecture: 3-tier observation (hooks + workflow events + transcript analysis) → JSONL storage → digest → recall injection.
-All 34 requirements satisfied, 68 truths verified, 32 cross-phase integrations wired.
-Hive works identically with telemetry disabled (backward compatible).
+v2.0 adds git workflow integration via `gh` CLI and native `git` commands.
+Research completed: `.planning/research/GIT-WORKFLOW-RECOMMENDATIONS.md` — Modified GitHub Flow with plan-level branches, 3 build gates, file-based merge queue.
 
 ## Constraints
 
 - **Zero dependencies**: No npm packages — pure Node.js stdlib (fs, path, JSON)
-- **Fail-silent**: Observation failures must NEVER break workflow execution
-- **Async hooks**: All hooks must be non-blocking
-- **File-based**: JSONL for events, Markdown for insights — no databases
-- **Privacy-aware**: Events contain metadata only (no code, no secrets), JSONL gitignored
-- **Backward compatible**: Hive works identically with telemetry disabled
+- **Backward compatible**: `git.flow: "none"` bypasses all new git features (current behavior preserved)
+- **`gh` CLI required**: PR operations depend on GitHub CLI being installed
+- **Single-terminal first**: v2.0 targets single-terminal; multi-terminal deferred to v2.1+
+- **File-based coordination**: Merge queue, signals use JSON files (no sockets, no databases)
+- **Fail-safe**: Build gate failures block progression, never silently pass broken code
 
 ## Key Decisions
 
@@ -71,12 +87,12 @@ Hive works identically with telemetry disabled (backward compatible).
 | Implement Recall before other features | Everything built after gets tracked automatically | ✓ Good — all phases observed |
 | JSONL over SQLite | Zero deps, append-only, learned from v1.9.2 removal | ✓ Good — simple, fast, no deps |
 | 3-tier architecture (hooks + workflow + transcript) | Each tier adds context the previous can't see | ✓ Good — 10 + 13 + transcript emit points |
-| MVP expanded to full 7 phases | Transcript analysis and integration closure added after initial 4 phases proved solid | ✓ Good — complete loop shipped |
 | events.jsonl gitignored, INSIGHTS.md committed | Privacy for raw data, shareability for insights | ✓ Good — clean separation |
-| `<recall>` block in agent prompts | Fits existing prompt-block pattern (objective, context, constraints) | ✓ Good — 36 injection points across 11 workflows |
-| Hooks write directly to JSONL (no CLI child process) | Avoids ~100ms subprocess overhead per hook | ✓ Good — near-zero latency |
-| Telemetry enabled by default (missing config = enabled) | Zero-friction adoption, users can opt out | ✓ Good — works out of the box |
-| Cap recall patterns at 5 lines with PATTERN/TREND/REC prefixes | Bounded agent context, machine-parseable | ✓ Good — fits in prompt blocks |
+| Foundation first (v2.0 = Phase 1-2 only) | Ship incremental; single-terminal + repo manager before multi-terminal | — Pending |
+| Build gates always on by default | Safety > convenience; user disables if needed | — Pending |
+| Merge commit (--no-ff) | Preserves per-task commit granularity on dev branch | — Pending |
+| Concurrency locks in this milestone | File locking is prerequisite for safe parallel writes | — Pending |
+| Modified GitHub Flow | Plan-level branches, dev integration branch, PRs to dev | — Pending |
 
 ---
-*Last updated: 2026-02-12 after v1.0 milestone*
+*Last updated: 2026-02-12 after v2.0 milestone start*
