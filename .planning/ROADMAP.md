@@ -26,7 +26,7 @@
 
 - [x] **Phase 8: Safety & Configuration** — Atomic writes, file locking, config schema, auto-detection, git tooling primitives — completed 2026-02-12
 - [x] **Phase 9: Branch Lifecycle & Build Gates** — Dev branch, plan-level branching, branch cleanup, pre-PR build validation — completed 2026-02-12
-- [ ] **Phase 10: PR & Workflow Integration** — PR creation, self-merge, workflow modifications, git status display
+- [x] **Phase 10: PR & Workflow Integration** — PR creation, self-merge, workflow modifications, git status display — completed 2026-02-12
 - [ ] **Phase 11: Repo Manager** — Merge queue, wave-aware ordering, conflict detection, integration build gates
 
 ## Phase Details
@@ -102,9 +102,9 @@ Plans:
 | 7. Close Integration Gaps | v1.0 | 1/1 | Complete | 2026-02-12 |
 | 8. Safety & Configuration | v2.0 | 2/2 | Complete | 2026-02-12 |
 | 9. Branch Lifecycle & Build Gates | v2.0 | 2/2 | Complete | 2026-02-12 |
-| 10. PR & Workflow Integration | v2.0 | 0/3 | Not started | - |
+| 10. PR & Workflow Integration | v2.0 | 3/3 | Complete | 2026-02-12 |
 | 11. Repo Manager | v2.0 | 0/TBD | Not started | - |
 
 ---
 *Roadmap created: 2026-02-11*
-*Last updated: 2026-02-12 after Phase 9 execution*
+*Last updated: 2026-02-12 after Phase 10 execution*
