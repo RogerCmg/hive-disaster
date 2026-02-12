@@ -33,6 +33,7 @@
  *   telemetry emit <type> --data '{json}'  Emit telemetry event
  *   telemetry query [--type X] [--since Y]  Query filtered events
  *     [--limit N]
+ *   telemetry digest                        Generate INSIGHTS.md
  *   telemetry stats                         Show event summary
  *   telemetry rotate [--force]              Rotate events file
  *
@@ -4432,6 +4433,147 @@ function cmdTelemetryRotate(cwd, force, raw) {
   output({ rotated: true, archived_size_kb: Math.round(size / 1024 * 10) / 10 }, raw, 'rotated');
 }
 
+function cmdTelemetryDigest(cwd, raw) {
+  const telemetryDir = path.join(cwd, '.planning', 'telemetry');
+  const eventsFile = path.join(telemetryDir, 'events.jsonl');
+  const insightsPath = path.join(telemetryDir, 'INSIGHTS.md');
+  const content = safeReadFile(eventsFile);
+
+  // Ensure telemetry dir exists for writing INSIGHTS.md
+  fs.mkdirSync(telemetryDir, { recursive: true });
+
+  if (!content || !content.trim()) {
+    const stub = [
+      '# Telemetry Insights',
+      '',
+      '*Generated: ' + new Date().toISOString() + '*',
+      '',
+      'No events recorded yet.',
+      '',
+      '---',
+      '*Phase 1 digest — enhanced analysis available in Phase 4*',
+    ].join('\n');
+    fs.writeFileSync(insightsPath, stub);
+    output({ generated: true, path: insightsPath, total_events: 0 }, raw, insightsPath);
+    return;
+  }
+
+  // Parse all events
+  const events = content.split('\n').filter(Boolean).map(line => {
+    try { return JSON.parse(line); } catch { return null; }
+  }).filter(Boolean);
+
+  const totalEvents = events.length;
+
+  // Aggregate by type
+  const typeCounts = {};
+  events.forEach(e => {
+    typeCounts[e.type] = (typeCounts[e.type] || 0) + 1;
+  });
+
+  // Time range
+  const timestamps = events.map(e => e.ts).filter(Boolean).sort();
+  const earliest = timestamps[0] || 'unknown';
+  const latest = timestamps[timestamps.length - 1] || 'unknown';
+
+  // Agent performance (from agent_completion events)
+  const agentStats = {};
+  events.filter(e => e.type === 'agent_completion' && e.data && e.data.agent).forEach(e => {
+    const agent = e.data.agent;
+    if (!agentStats[agent]) agentStats[agent] = { completions: 0, totalDuration: 0, hasDuration: false };
+    agentStats[agent].completions++;
+    if (typeof e.data.duration_ms === 'number') {
+      agentStats[agent].totalDuration += e.data.duration_ms;
+      agentStats[agent].hasDuration = true;
+    }
+  });
+
+  // Recent deviations (last 5)
+  const deviations = events.filter(e => e.type === 'deviation').slice(-5);
+
+  // Tool errors
+  const toolErrors = {};
+  events.filter(e => e.type === 'tool_error').forEach(e => {
+    const tool = (e.data && e.data.tool) || 'unknown';
+    toolErrors[tool] = (toolErrors[tool] || 0) + 1;
+  });
+
+  // Build markdown
+  const lines = [];
+  lines.push('# Telemetry Insights');
+  lines.push('');
+  lines.push('*Generated: ' + new Date().toISOString() + '*');
+  lines.push('*Period: ' + earliest + ' to ' + latest + '*');
+  lines.push('*Total events: ' + totalEvents + '*');
+  lines.push('');
+
+  // Event Summary table
+  lines.push('## Event Summary');
+  lines.push('');
+  lines.push('| Type | Count | % |');
+  lines.push('|------|-------|---|');
+  const sortedTypes = Object.entries(typeCounts).sort((a, b) => b[1] - a[1]);
+  sortedTypes.forEach(([type, count]) => {
+    const pct = Math.round(count / totalEvents * 100);
+    lines.push('| ' + type + ' | ' + count + ' | ' + pct + '% |');
+  });
+  lines.push('');
+
+  // Agent Performance table
+  lines.push('## Agent Performance');
+  lines.push('');
+  const agentEntries = Object.entries(agentStats);
+  if (agentEntries.length === 0) {
+    lines.push('None recorded');
+  } else {
+    lines.push('| Agent | Completions | Avg Duration |');
+    lines.push('|-------|-------------|--------------|');
+    agentEntries.forEach(([agent, stats]) => {
+      const avgDuration = stats.hasDuration
+        ? Math.round(stats.totalDuration / stats.completions) + 'ms'
+        : 'N/A';
+      lines.push('| ' + agent + ' | ' + stats.completions + ' | ' + avgDuration + ' |');
+    });
+  }
+  lines.push('');
+
+  // Recent Deviations
+  lines.push('## Recent Deviations');
+  lines.push('');
+  if (deviations.length === 0) {
+    lines.push('None recorded');
+  } else {
+    deviations.forEach(e => {
+      const severity = (e.data && e.data.severity) || 'unknown';
+      const resolution = (e.data && e.data.resolution) || 'unknown';
+      const phase = (e.data && e.data.phase) || 'unknown';
+      lines.push('- ' + e.ts + ': ' + severity + ' - ' + resolution + ' (phase: ' + phase + ')');
+    });
+  }
+  lines.push('');
+
+  // Tool Errors
+  lines.push('## Tool Errors');
+  lines.push('');
+  const errorEntries = Object.entries(toolErrors);
+  if (errorEntries.length === 0) {
+    lines.push('None recorded');
+  } else {
+    lines.push('| Tool | Errors |');
+    lines.push('|------|--------|');
+    errorEntries.sort((a, b) => b[1] - a[1]).forEach(([tool, count]) => {
+      lines.push('| ' + tool + ' | ' + count + ' |');
+    });
+  }
+  lines.push('');
+
+  lines.push('---');
+  lines.push('*Phase 1 digest — enhanced analysis available in Phase 4*');
+
+  fs.writeFileSync(insightsPath, lines.join('\n'));
+  output({ generated: true, path: insightsPath, total_events: totalEvents }, raw, insightsPath);
+}
+
 function cmdTelemetryEmit(cwd, type, dataStr, raw) {
   if (!type) {
     error('Event type required. Valid types: ' + VALID_EVENT_TYPES.join(', '));
@@ -4863,6 +5005,8 @@ async function main() {
         }, raw);
       } else if (subcommand === 'stats') {
         cmdTelemetryStats(cwd, raw);
+      } else if (subcommand === 'digest') {
+        cmdTelemetryDigest(cwd, raw);
       } else if (subcommand === 'rotate') {
         const force = args.indexOf('--force') !== -1;
         cmdTelemetryRotate(cwd, force, raw);
