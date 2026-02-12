@@ -5,14 +5,14 @@
 See: .planning/PROJECT.md (updated 2026-02-11)
 
 **Core value:** Persistent memory across sessions -- agents learn from past failures without breaking fresh-context architecture
-**Current focus:** Phase 6 complete — ALL PHASES COMPLETE. Milestone ready for audit.
+**Current focus:** Phase 7 complete — Integration gaps closed. All requirements verified. Milestone ready.
 
 ## Current Position
 
-**Phase:** 6 of 6 (Transcript Analysis) — COMPLETE
-**Current Plan:** 2/2
-**Total Plans in Phase:** 2
-**Status:** Phase complete — verified (11/11 must-haves)
+**Phase:** 7 of 7 (Close Integration Gaps) — COMPLETE
+**Current Plan:** 1/1
+**Total Plans in Phase:** 1
+**Status:** Phase complete — all 34 requirements verified
 **Last Activity:** 2026-02-12
 
 **Progress:** [██████████] 100%
@@ -47,6 +47,7 @@ See: .planning/PROJECT.md (updated 2026-02-11)
 | Phase 05 P01 | 2min | 2 tasks | 3 files |
 | Phase 06-transcript-analysis P01 | 4min | 2 tasks | 7 files |
 | Phase 06-transcript-analysis P02 | 4min | 2 tasks | 5 files |
+| Phase 07-close-integration-gaps PP01 | 3min | 3 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -90,6 +91,9 @@ Recent decisions affecting current work:
 - [Phase 06-transcript-analysis]: 5-point threshold for trend classification to prevent noise in small samples
 - [Phase 06-transcript-analysis]: Cross-session workflow step is non-blocking (degrades gracefully with insufficient data)
 - [Phase 06-transcript-analysis]: Recurring items need 2+ occurrences to surface (prevents one-off noise)
+- [Phase 07-close-integration-gaps]: Session patterns compete on frequency with deviations/tool-errors for Top Patterns cap (no reserved slots)
+- [Phase 07-close-integration-gaps]: Session recommendations require count >= 2 to surface (consistent with cross-session recurring threshold)
+- [Phase 07-close-integration-gaps]: Pattern C (main context) excluded from recall injection -- no subagent spawn
 
 ### Pending Todos
 
@@ -101,6 +105,6 @@ None yet.
 
 ## Session Continuity
 
-**Last session:** 2026-02-12T04:12:37.599Z
-**Stopped at:** Completed 06-02-PLAN.md
+**Last session:** 2026-02-12T04:50:13.388Z
+**Stopped at:** Completed 07-01-PLAN.md
 **Resume file:** None
