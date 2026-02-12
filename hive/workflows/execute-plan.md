@@ -674,6 +674,46 @@ PR_URL=$(echo "$PR_RESULT" | jq -r '.pr_url // empty')
 
 If PR creation fails: log warning with error, set `PR_FLOW_RESULT="failed_pr_create"`. Continue to next step (do NOT block execution).
 
+**3.5. Check merge path (repo manager vs self-merge):**
+
+```bash
+REPO_MANAGER=$(echo "$CONFIG_CONTENT" | jq -r '.git.repo_manager // false')
+```
+
+**If `REPO_MANAGER` is `true`:**
+
+Submit to merge queue instead of self-merging:
+
+```bash
+# Extract plan metadata from frontmatter
+PLAN_WAVE=$(grep -m1 "^wave:" "${PLAN_PATH}" | sed 's/wave: *//')
+
+# Submit to merge queue
+QUEUE_RESULT=$(node ./.claude/hive/bin/hive-tools.js git queue-submit \
+  --plan-id "${PHASE}-${PLAN}" \
+  --branch "$(git branch --show-current)" \
+  --wave "${PLAN_WAVE}" \
+  --pr-number "${PR_NUMBER}" \
+  --pr-url "${PR_URL}" \
+  --raw)
+QUEUE_SUCCESS=$(echo "$QUEUE_RESULT" | jq -r '.success')
+QUEUE_ID=$(echo "$QUEUE_RESULT" | jq -r '.id // empty')
+```
+
+If queue submission succeeded:
+- Log: "Submitted to merge queue: ${QUEUE_ID} (PR #${PR_NUMBER}). Run `/hive:manage-repo` to process."
+- Set `PR_FLOW_RESULT="queued"`.
+- Do NOT self-merge. Do NOT checkout dev. The repo manager will handle merge and branch cleanup.
+- Skip to step 6 (record PR result).
+
+If queue submission failed:
+- Log warning: "Failed to submit to merge queue. Falling back to self-merge."
+- Continue to step 4 (self-merge) as fallback.
+
+**If `REPO_MANAGER` is `false` or not set (default):**
+
+Continue to step 4 (self-merge) -- existing Phase 10 behavior, completely unchanged.
+
 **4. Self-merge the PR (single-terminal mode):**
 
 Extract PR number from URL:
@@ -720,6 +760,17 @@ If the workflow wants to append PR info to the existing SUMMARY.md, it can add a
 **Result:** ${PR_FLOW_RESULT}
 **PR:** ${PR_URL}
 **Merge strategy:** ${MERGE_STRATEGY}
+```
+
+If `PR_FLOW_RESULT` is `"queued"`, use this format instead:
+
+```
+## PR Flow
+
+**Result:** queued
+**PR:** ${PR_URL}
+**Queue ID:** ${QUEUE_ID}
+**Note:** Submitted to merge queue. Merge pending via /hive:manage-repo.
 ```
 </step>
 
