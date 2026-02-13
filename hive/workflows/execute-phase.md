@@ -932,6 +932,18 @@ node ~/.claude/hive/bin/hive-tools.js commit "docs(phase-{X}): complete phase ex
 ```
 </step>
 
+<step name="refresh_recall">
+
+Regenerate INSIGHTS.md so the next phase benefits from patterns learned in this one.
+
+```bash
+node ~/.claude/hive/bin/hive-tools.js telemetry digest 2>/dev/null && echo "Recall refreshed for next phase" || echo "Telemetry digest skipped (no events or telemetry disabled)"
+```
+
+This closes the observe → record → digest → feedback loop automatically.
+
+</step>
+
 <step name="offer_next">
 
 **If more phases:**
