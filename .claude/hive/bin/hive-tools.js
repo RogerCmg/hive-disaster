@@ -192,6 +192,7 @@ function loadConfig(cwd) {
     git_build_gates_pre_merge: true,
     git_build_gates_pre_main: true,
     git_build_command: null,
+    git_pre_main_command: null,
     git_build_timeout: 300,
     git_merge_strategy: 'merge',
     git_require_build: false,
@@ -237,6 +238,7 @@ function loadConfig(cwd) {
       git_build_gates_pre_merge: buildGates.pre_merge ?? defaults.git_build_gates_pre_merge,
       git_build_gates_pre_main: buildGates.pre_main ?? defaults.git_build_gates_pre_main,
       git_build_command: gitSection.build_command ?? defaults.git_build_command,
+      git_pre_main_command: gitSection.pre_main_command ?? defaults.git_pre_main_command,
       git_build_timeout: gitSection.build_timeout ?? defaults.git_build_timeout,
       git_merge_strategy: gitSection.merge_strategy ?? defaults.git_merge_strategy,
       git_require_build: buildGates.require_build ?? defaults.git_require_build,
@@ -5389,14 +5391,20 @@ function cmdGitCreatePlanBranch(cwd, branchName, raw) {
   }
 }
 
-function cmdGitRunBuildGate(cwd, raw) {
+function cmdGitRunBuildGate(cwd, gate, raw) {
   const config = loadConfig(cwd);
   if (config.git_flow === 'none') {
     output({ success: true, skipped: true, reason: 'git.flow is none' }, raw, 'skipped');
     return;
   }
 
-  const buildCmd = config.git_build_command || detectBuildCommand(cwd).command;
+  // Gate-specific command selection: pre_main_command for Gate 3, build_command for others
+  let buildCmd;
+  if (gate === 'pre_main' && config.git_pre_main_command) {
+    buildCmd = config.git_pre_main_command;
+  } else {
+    buildCmd = config.git_build_command || detectBuildCommand(cwd).command;
+  }
   if (!buildCmd) {
     if (config.git_require_build) {
       output({ success: false, error: 'require_build is true but no build command detected. Set git.build_command in config.json or add a test script to package.json.', required: true }, raw, 'fail');
@@ -6368,7 +6376,9 @@ async function main() {
         const branchName = nameIdx !== -1 ? args[nameIdx + 1] : null;
         cmdGitCreatePlanBranch(cwd, branchName, raw);
       } else if (subcommand === 'run-build-gate') {
-        cmdGitRunBuildGate(cwd, raw);
+        const gateIndex = args.indexOf('--gate');
+        const gate = gateIndex !== -1 && args[gateIndex + 1] ? args[gateIndex + 1] : null;
+        cmdGitRunBuildGate(cwd, gate, raw);
       } else if (subcommand === 'create-pr') {
         const baseIdx = args.indexOf('--base');
         const titleIdx = args.indexOf('--title');
