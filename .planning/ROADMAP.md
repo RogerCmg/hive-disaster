@@ -43,11 +43,11 @@
   1. When queue submission fails, the fallback path runs Gate 2 validation before self-merging to dev
   2. Between execution waves, dev branch is synced via pull so later waves build on merged work from earlier waves
   3. When a build times out, the entire process tree is killed (not just the parent), leaving no orphan processes
-**Plans**: TBD
+**Plans**: 2 plans
 
 Plans:
-- [ ] 12-01: TBD
-- [ ] 12-02: TBD
+- [ ] 12-01-PLAN.md — Process group killing on build timeout (RESIL-03)
+- [ ] 12-02-PLAN.md — Dev sync between waves + Gate 2 queue fallback (RESIL-01, RESIL-02)
 
 #### Phase 13: Build Pipeline
 **Goal**: Build commands support real-world project complexity — multi-step pipelines, separate main-branch validation, and explicit build enforcement
@@ -109,7 +109,7 @@ Phases execute in numeric order: 12 -> 13 -> 14 -> 15
 | 9. Branch Lifecycle & Build Gates | v2.0 | 2/2 | Complete | 2026-02-12 |
 | 10. PR & Workflow Integration | v2.0 | 3/3 | Complete | 2026-02-12 |
 | 11. Repo Manager | v2.0 | 3/3 | Complete | 2026-02-12 |
-| 12. Resilience | v2.1 | 0/? | Not started | - |
+| 12. Resilience | v2.1 | 0/2 | Planned | - |
 | 13. Build Pipeline | v2.1 | 0/? | Not started | - |
 | 14. Multi-Worker Safety | v2.1 | 0/? | Not started | - |
 | 15. Developer Experience | v2.1 | 0/? | Not started | - |
