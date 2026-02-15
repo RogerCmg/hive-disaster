@@ -2,19 +2,17 @@
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-02-12)
+See: .planning/PROJECT.md (updated 2026-02-15)
 
 **Core value:** Safe path from plan to merged code — quality scales with parallelism
-**Current focus:** Planning next milestone
+**Current focus:** Milestone v2.1 — Git Flow Hardening
 
 ## Current Position
 
-Phase: N/A (between milestones)
-Plan: N/A
-Status: v2.0 shipped, awaiting next milestone
-Last activity: 2026-02-12 — v2.0 milestone archived
-
-Progress: [██████████] 100% (v2.0)
+Phase: Not started (defining requirements)
+Plan: —
+Status: Defining requirements
+Last activity: 2026-02-15 — Milestone v2.1 started
 
 ## Performance Metrics
 
@@ -49,6 +47,6 @@ None.
 
 ## Session Continuity
 
-**Last session:** 2026-02-12
-**Stopped at:** v2.0 milestone archived and tagged
-**Resume file:** Next: `/hive:new-milestone` to start v2.1+
+**Last session:** 2026-02-15
+**Stopped at:** Milestone v2.1 started, defining requirements
+**Resume file:** Next: define requirements → create roadmap

@@ -58,7 +58,15 @@ Give AI agents a structured, safe path from plan to merged code — so quality s
 
 ### Active
 
-(No active requirements — define in next milestone via `/hive:new-milestone`)
+#### Current Milestone: v2.1 Git Flow Hardening
+
+**Goal:** Harden the v2.0 git workflow with resilience fixes, build pipeline flexibility, multi-worker safety, and DX improvements — closing 11 verified gaps found via code audit.
+
+**Target features:**
+- P0: Fallback policy with Gate 2 enforcement, dev sync between waves, process group killing
+- P1: Build command as array pipeline, separable Gate 3 command, require_build flag
+- P2: Queue lease/ownership for entries, per-plan merge strategy, configurable protected branches
+- P3: Automatic CHANGELOG generation, push after merge-to-main, rebase strategy documentation
 
 ### Out of Scope
 
@@ -109,4 +117,4 @@ Two milestones shipped in same day (v1.0 Recall + v2.0 Git Flow).
 | Gate 2 always aborts in finally | Crash recovery, never leaves merge state | ✓ Good — fail-safe |
 
 ---
-*Last updated: 2026-02-12 after v2.0 milestone completion*
+*Last updated: 2026-02-15 after v2.1 milestone started*
