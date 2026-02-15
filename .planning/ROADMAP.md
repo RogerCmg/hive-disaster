@@ -46,8 +46,8 @@
 **Plans**: 2 plans
 
 Plans:
-- [ ] 12-01-PLAN.md — Process group killing on build timeout (RESIL-03)
-- [ ] 12-02-PLAN.md — Dev sync between waves + Gate 2 queue fallback (RESIL-01, RESIL-02)
+- [x] 12-01-PLAN.md — Process group killing on build timeout (RESIL-03) — completed 2026-02-15
+- [x] 12-02-PLAN.md — Dev sync between waves + Gate 2 queue fallback (RESIL-01, RESIL-02) — completed 2026-02-15
 
 #### Phase 13: Build Pipeline
 **Goal**: Build commands support real-world project complexity — multi-step pipelines, separate main-branch validation, and explicit build enforcement
@@ -109,11 +109,11 @@ Phases execute in numeric order: 12 -> 13 -> 14 -> 15
 | 9. Branch Lifecycle & Build Gates | v2.0 | 2/2 | Complete | 2026-02-12 |
 | 10. PR & Workflow Integration | v2.0 | 3/3 | Complete | 2026-02-12 |
 | 11. Repo Manager | v2.0 | 3/3 | Complete | 2026-02-12 |
-| 12. Resilience | v2.1 | 0/2 | Planned | - |
+| 12. Resilience | v2.1 | 2/2 | Complete | 2026-02-15 |
 | 13. Build Pipeline | v2.1 | 0/? | Not started | - |
 | 14. Multi-Worker Safety | v2.1 | 0/? | Not started | - |
 | 15. Developer Experience | v2.1 | 0/? | Not started | - |
 
 ---
 *Roadmap created: 2026-02-11*
-*Last updated: 2026-02-15 after v2.1 roadmap creation*
+*Last updated: 2026-02-15 after Phase 12 completion*

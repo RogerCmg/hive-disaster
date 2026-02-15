@@ -5,21 +5,21 @@
 See: .planning/PROJECT.md (updated 2026-02-15)
 
 **Core value:** Safe path from plan to merged code — quality scales with parallelism
-**Current focus:** Phase 12 — Resilience
+**Current focus:** Phase 13 — Build Pipeline
 
 ## Current Position
 
-Phase: 12 of 15 (Resilience)
-Plan: 2 of 2 in current phase
-Status: Executing
-Last activity: 2026-02-15 — Completed 12-02 Dev Sync & Gate 2 Fallback
+Phase: 13 of 15 (Build Pipeline)
+Plan: 0 of ? in current phase
+Status: Ready to plan
+Last activity: 2026-02-15 — Phase 12 Resilience complete (2/2 plans, verified)
 
-Progress: [█░░░░░░░░░] 10% (v2.1)
+Progress: [██░░░░░░░░] 25% (v2.1)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 24 (v1.0: 14, v2.0: 10)
+- Total plans completed: 26 (v1.0: 14, v2.0: 10, v2.1: 2)
 - Average duration: ~20 min (v1.0 ~30m, v2.0 ~3.5m)
 - Total execution time: ~7h (v1.0) + ~35min (v2.0)
 
@@ -56,6 +56,6 @@ None.
 
 ## Session Continuity
 
-**Last session:** 2026-02-15T15:55:26Z
-**Stopped at:** Completed 12-02 Dev Sync & Gate 2 Fallback
-**Resume file:** None
+**Last session:** 2026-02-15
+**Stopped at:** Phase 12 complete, ready to plan Phase 13
+**Resume file:** Next: `/hive:plan-phase 13`
