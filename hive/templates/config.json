@@ -52,6 +52,7 @@
       "require_build": false
     },
     "build_command": null,
+    "pre_main_command": null,
     "build_timeout": 300,
     "merge_strategy": "merge",
     "repo_manager": false
