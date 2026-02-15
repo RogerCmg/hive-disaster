@@ -16,10 +16,10 @@ Read STATE.md before any operation to load project context.
 Load all context in one call:
 
 ```bash
-INIT=$(node ./.claude/hive/bin/hive-tools.js init execute-phase "${PHASE_ARG}")
+INIT=$(node ~/.claude/hive/bin/hive-tools.js init execute-phase "${PHASE_ARG}")
 ```
 
-Parse JSON for: `executor_model`, `verifier_model`, `commit_docs`, `parallelization`, `branching_strategy`, `branch_name`, `phase_found`, `phase_dir`, `phase_number`, `phase_name`, `phase_slug`, `plans`, `incomplete_plans`, `plan_count`, `incomplete_count`, `state_exists`, `roadmap_exists`.
+Parse JSON for: `executor_model`, `verifier_model`, `commit_docs`, `parallelization`, `branching_strategy`, `branch_name`, `git_flow`, `git_dev_branch`, `phase_found`, `phase_dir`, `phase_number`, `phase_name`, `phase_slug`, `plans`, `incomplete_plans`, `plan_count`, `incomplete_count`, `state_exists`, `roadmap_exists`.
 
 Extract recall context for agent prompts:
 ```bash
@@ -34,11 +34,62 @@ When `parallelization` is false, plans within a wave execute sequentially.
 </step>
 
 <step name="handle_branching">
-Check `branching_strategy` from init:
+Check git flow config from init:
 
-**"none":** Skip, continue on current branch.
+```bash
+GIT_FLOW=$(echo "$INIT" | jq -r '.git_flow // "none"')
+GIT_DEV_BRANCH=$(echo "$INIT" | jq -r '.git_dev_branch // "dev"')
+BRANCHING_STRATEGY=$(echo "$INIT" | jq -r '.branching_strategy // "none"')
+```
 
-**"phase" or "milestone":** Use pre-computed `branch_name` from init:
+**Git flow "none" AND branching_strategy "none":** Skip, continue on current branch.
+
+**Git flow "github" (Phase 9+ plan-level branching):**
+
+Plan branches are created PER PLAN, not per phase. For each plan in the current wave, BEFORE spawning the executor:
+
+1. Generate the branch name:
+```bash
+PLAN_SLUG=$(node ~/.claude/hive/bin/hive-tools.js generate-slug "${PLAN_NAME}" --raw)
+BRANCH_NAME="hive/phase-${PHASE_NUMBER}-${PLAN_NUMBER}-${PLAN_SLUG}"
+```
+
+2. Check if branch already exists (re-execution case):
+```bash
+CURRENT=$(node ~/.claude/hive/bin/hive-tools.js git current-branch --raw)
+CURRENT_BRANCH=$(echo "$CURRENT" | jq -r '.branch')
+```
+
+3. If already on the target branch: skip creation, log "Already on plan branch: ${BRANCH_NAME}".
+
+4. If not on target branch, ensure dev branch exists first:
+```bash
+# Ensure we are on dev before branching
+git checkout "${GIT_DEV_BRANCH}" 2>/dev/null || {
+  # Dev branch missing — create it (handles upgrade from pre-Phase-9 projects)
+  node ~/.claude/hive/bin/hive-tools.js git create-dev-branch --raw
+}
+```
+
+5. Create the plan branch:
+```bash
+BRANCH_RESULT=$(node ~/.claude/hive/bin/hive-tools.js git create-plan-branch --name "${BRANCH_NAME}" --raw)
+BRANCH_SUCCESS=$(echo "$BRANCH_RESULT" | jq -r '.success')
+```
+
+6. If success: continue. If branch already exists (re-execution): `git checkout "${BRANCH_NAME}"`.
+
+7. Pass BRANCH_NAME to the executor agent prompt so it knows which branch it is on. Add to the executor spawn prompt:
+```
+<branch_context>
+You are executing on branch: ${BRANCH_NAME}
+All task commits go to this branch. Do NOT switch branches during execution.
+</branch_context>
+```
+
+**Branching_strategy "phase" or "milestone" (legacy fallback):**
+
+Preserve the existing behavior — use pre-computed `branch_name` from init:
 ```bash
 git checkout -b "$BRANCH_NAME" 2>/dev/null || git checkout "$BRANCH_NAME"
 ```
@@ -103,7 +154,7 @@ Report: "Found {plan_count} plans in {phase_dir} ({incomplete_count} incomplete)
 Load plan inventory with wave grouping in one call:
 
 ```bash
-PLAN_INDEX=$(node ./.claude/hive/bin/hive-tools.js phase-plan-index "${PHASE_NUMBER}")
+PLAN_INDEX=$(node ~/.claude/hive/bin/hive-tools.js phase-plan-index "${PHASE_NUMBER}")
 ```
 
 Parse JSON for: `phase`, `plans[]` (each with `id`, `wave`, `autonomous`, `objective`, `files_modified`, `task_count`, `has_summary`), `waves` (map of wave number → plan IDs), `incomplete`, `has_checkpoints`.
@@ -174,10 +225,10 @@ Execute each wave. Within a wave: parallel if `PARALLELIZATION=true`, sequential
        </team_protocol>
 
        <execution_context>
-       @./.claude/hive/workflows/execute-plan.md
-       @./.claude/hive/templates/summary.md
-       @./.claude/hive/references/checkpoints.md
-       @./.claude/hive/references/tdd.md
+       @~/.claude/hive/workflows/execute-plan.md
+       @~/.claude/hive/templates/summary.md
+       @~/.claude/hive/references/checkpoints.md
+       @~/.claude/hive/references/tdd.md
        </execution_context>
 
        <files_to_read>
@@ -294,7 +345,7 @@ Execute each wave. Within a wave: parallel if `PARALLELIZATION=true`, sequential
       ```
    d2. Emit the checkpoint resolution event for Recall:
       ```bash
-      node ./.claude/hive/bin/hive-tools.js telemetry emit checkpoint \
+      node ~/.claude/hive/bin/hive-tools.js telemetry emit checkpoint \
         --data "{\"phase\":\"${PHASE_NUMBER}\",\"plan\":\"${PLAN_ID}\",\"checkpoint_type\":\"${CHECKPOINT_TYPE}\",\"user_response\":\"${USER_RESPONSE}\",\"outcome\":\"${OUTCOME}\"}"
       ```
    e. Executor wakes up with full context, continues execution
@@ -379,7 +430,48 @@ Execute each wave. Within a wave: parallel if `PARALLELIZATION=true`, sequential
    ---
    ```
 
-6. **Shutdown wave executors:**
+6. **Plan branch cleanup (git flow "github" only):**
+
+   After wave completion and BEFORE proceeding to next wave, clean up plan branches that were merged during execute-plan's PR flow.
+
+   **Note:** Plan branches are merged to dev via PR self-merge in execute-plan.md. This cleanup step handles the LOCAL branch deletion. The remote branch is already deleted by `gh pr merge --delete-branch`.
+
+   For each completed plan in the wave (where git_flow is "github"):
+   ```bash
+   # Verify we are on dev (execute-plan should have left us here after PR merge)
+   CURRENT=$(git branch --show-current)
+   if [ "$CURRENT" != "${GIT_DEV_BRANCH}" ]; then
+     git checkout "${GIT_DEV_BRANCH}" 2>/dev/null || true
+   fi
+
+   # Delete local plan branch (safe delete — succeeds because branch is merged to dev)
+   CLEANUP=$(node ~/.claude/hive/bin/hive-tools.js git delete-plan-branch "${BRANCH_NAME}" --raw)
+   CLEANUP_SUCCESS=$(echo "$CLEANUP" | jq -r '.success')
+   ```
+
+   If cleanup succeeds: log "Cleaned up branch: ${BRANCH_NAME}".
+   If cleanup fails with "not fully merged": the plan's PR may not have been merged (gh unavailable, merge failed, etc.). Log warning: "Branch ${BRANCH_NAME} not fully merged to dev. Keeping for manual resolution." Do NOT force-delete.
+   If cleanup fails with other error: log warning but do not block execution.
+
+   Branch cleanup is BEST EFFORT. Stale branches are informational, not harmful.
+
+7. **Sync dev branch (git flow "github" only):**
+
+   After branch cleanup and BEFORE proceeding to next wave, pull dev to incorporate all merged work from this wave. This ensures next wave's plan branches fork from the latest dev state.
+
+   ```bash
+   # Only sync if on dev branch and git flow is active
+   if [ "$GIT_FLOW" = "github" ]; then
+     CURRENT=$(git branch --show-current)
+     if [ "$CURRENT" = "${GIT_DEV_BRANCH}" ]; then
+       git pull origin "${GIT_DEV_BRANCH}" 2>/dev/null || true
+     fi
+   fi
+   ```
+
+   If pull fails (e.g., no remote, network error): log warning "Could not sync dev from remote. Continuing with local state." Do NOT block execution -- local merges from this wave are already on dev. The pull primarily helps when remote has changes from other sources.
+
+8. **Shutdown wave executors:**
 
    After wave completion, send shutdown requests to all executors in the wave:
    ```
@@ -393,7 +485,7 @@ Execute each wave. Within a wave: parallel if `PARALLELIZATION=true`, sequential
    Wait for shutdown confirmations. If an executor rejects (still processing),
    wait and retry after 30 seconds.
 
-7. **Handle failures:**
+9. **Handle failures:**
 
    **classifyHandoffIfNeeded bug:** Same handling as current. If executor sends
    error containing this string, run spot-checks. Pass = success.
@@ -404,7 +496,7 @@ Execute each wave. Within a wave: parallel if `PARALLELIZATION=true`, sequential
    (no messages for extended period), check SUMMARY.md on disk. If present with
    Self-Check: PASSED, treat as success. Otherwise, report as failure.
 
-8. **Proceed to next wave.**
+10. **Proceed to next wave.**
 
 </team_mode>
 
@@ -447,10 +539,10 @@ checkpoint_handling step for checkpoints, continuation agents for resumption.
        </objective>
 
        <execution_context>
-       @./.claude/hive/workflows/execute-plan.md
-       @./.claude/hive/templates/summary.md
-       @./.claude/hive/references/checkpoints.md
-       @./.claude/hive/references/tdd.md
+       @~/.claude/hive/workflows/execute-plan.md
+       @~/.claude/hive/templates/summary.md
+       @~/.claude/hive/references/checkpoints.md
+       @~/.claude/hive/references/tdd.md
        </execution_context>
 
        <files_to_read>
@@ -508,9 +600,50 @@ checkpoint_handling step for checkpoints, continuation agents for resumption.
 
    For real failures: report which plan failed → ask "Continue?" or "Stop?" → if continue, dependent plans may also fail. If stop, partial completion report.
 
-6. **Execute checkpoint plans between waves** — see `<checkpoint_handling>`.
+6. **Plan branch cleanup (git flow "github" only):**
 
-7. **Proceed to next wave.**
+   After wave completion and BEFORE proceeding to next wave, clean up plan branches that were merged during execute-plan's PR flow.
+
+   **Note:** Plan branches are merged to dev via PR self-merge in execute-plan.md. This cleanup step handles the LOCAL branch deletion. The remote branch is already deleted by `gh pr merge --delete-branch`.
+
+   For each completed plan in the wave (where git_flow is "github"):
+   ```bash
+   # Verify we are on dev (execute-plan should have left us here after PR merge)
+   CURRENT=$(git branch --show-current)
+   if [ "$CURRENT" != "${GIT_DEV_BRANCH}" ]; then
+     git checkout "${GIT_DEV_BRANCH}" 2>/dev/null || true
+   fi
+
+   # Delete local plan branch (safe delete — succeeds because branch is merged to dev)
+   CLEANUP=$(node ~/.claude/hive/bin/hive-tools.js git delete-plan-branch "${BRANCH_NAME}" --raw)
+   CLEANUP_SUCCESS=$(echo "$CLEANUP" | jq -r '.success')
+   ```
+
+   If cleanup succeeds: log "Cleaned up branch: ${BRANCH_NAME}".
+   If cleanup fails with "not fully merged": the plan's PR may not have been merged (gh unavailable, merge failed, etc.). Log warning: "Branch ${BRANCH_NAME} not fully merged to dev. Keeping for manual resolution." Do NOT force-delete.
+   If cleanup fails with other error: log warning but do not block execution.
+
+   Branch cleanup is BEST EFFORT. Stale branches are informational, not harmful.
+
+7. **Sync dev branch (git flow "github" only):**
+
+   After branch cleanup and BEFORE proceeding to next wave, pull dev to incorporate all merged work from this wave. This ensures next wave's plan branches fork from the latest dev state.
+
+   ```bash
+   # Only sync if on dev branch and git flow is active
+   if [ "$GIT_FLOW" = "github" ]; then
+     CURRENT=$(git branch --show-current)
+     if [ "$CURRENT" = "${GIT_DEV_BRANCH}" ]; then
+       git pull origin "${GIT_DEV_BRANCH}" 2>/dev/null || true
+     fi
+   fi
+   ```
+
+   If pull fails: log warning but do not block execution. Local merges are already present.
+
+8. **Execute checkpoint plans between waves** — see `<checkpoint_handling>`.
+
+9. **Proceed to next wave.**
 </standalone_mode>
 </step>
 
@@ -603,7 +736,7 @@ where the entire wave blocks on checkpoint resolution.
 5. User responds: "approved"/"done" | issue description | decision selection
 5b. Emit the checkpoint resolution event for Recall:
    ```bash
-   node ./.claude/hive/bin/hive-tools.js telemetry emit checkpoint \
+   node ~/.claude/hive/bin/hive-tools.js telemetry emit checkpoint \
      --data "{\"phase\":\"${PHASE_NUMBER}\",\"plan\":\"${PLAN_ID}\",\"checkpoint_type\":\"${CHECKPOINT_TYPE}\",\"user_response\":\"${USER_RESPONSE}\",\"outcome\":\"${OUTCOME}\"}"
    ```
 6. **Spawn continuation agent (NOT resume)** using continuation-prompt.md template:
@@ -719,6 +852,10 @@ while remaining_plans or active_plans:
     completed_plans.add(plan.id)
     active_plans.remove(plan.id)
 
+    # Sync dev if git flow is active (pulls merged work so next branch forks from latest)
+    if GIT_FLOW == "github":
+      git pull origin "${GIT_DEV_BRANCH}" 2>/dev/null || true
+
     # Check if any remaining plans can now start
     for plan in remaining_plans:
       if all(dep in completed_plans for dep in plan.depends_on):
@@ -829,6 +966,18 @@ Mark phase complete in ROADMAP.md (date, status).
 ```bash
 node ./.claude/hive/bin/hive-tools.js commit "docs(phase-{X}): complete phase execution" --files .planning/ROADMAP.md .planning/STATE.md .planning/phases/{phase_dir}/*-VERIFICATION.md .planning/REQUIREMENTS.md
 ```
+</step>
+
+<step name="refresh_recall">
+
+Regenerate INSIGHTS.md so the next phase benefits from patterns learned in this one.
+
+```bash
+node ./.claude/hive/bin/hive-tools.js telemetry digest 2>/dev/null && echo "Recall refreshed for next phase" || echo "Telemetry digest skipped (no events or telemetry disabled)"
+```
+
+This closes the observe → record → digest → feedback loop automatically.
+
 </step>
 
 <step name="offer_next">
