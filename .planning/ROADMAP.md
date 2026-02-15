@@ -57,11 +57,11 @@ Plans:
   1. build_command accepts an array of commands that execute sequentially, stopping on first failure (e.g., ["npm run lint", "npm test", "npm run build"])
   2. Gate 3 (pre-main merge) uses a separate pre_main_command when configured, falling back to build_command when not set
   3. When require_build is true and no build command is detected, the gate errors explicitly instead of silently skipping
-**Plans**: TBD
+**Plans**: 2 plans
 
 Plans:
-- [ ] 13-01: TBD
-- [ ] 13-02: TBD
+- [ ] 13-01-PLAN.md — Array build pipeline + require_build enforcement (BUILD-01, BUILD-03)
+- [ ] 13-02-PLAN.md — Gate 3 pre_main_command with fallback to build_command (BUILD-02)
 
 #### Phase 14: Multi-Worker Safety
 **Goal**: Multiple workers can safely share the merge queue without conflicts, with per-plan control over merge behavior and configurable branch protection
