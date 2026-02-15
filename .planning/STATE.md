@@ -10,11 +10,11 @@ See: .planning/PROJECT.md (updated 2026-02-15)
 ## Current Position
 
 Phase: 12 of 15 (Resilience)
-Plan: 0 of ? in current phase
-Status: Ready to plan
-Last activity: 2026-02-15 — Roadmap created for v2.1 Git Flow Hardening
+Plan: 1 of 2 in current phase
+Status: Executing
+Last activity: 2026-02-15 — Completed 12-01 Process Group Killing
 
-Progress: [░░░░░░░░░░] 0% (v2.1)
+Progress: [█░░░░░░░░░] 10% (v2.1)
 
 ## Performance Metrics
 
@@ -32,6 +32,7 @@ Progress: [░░░░░░░░░░] 0% (v2.1)
 | v2.1 Hardening | 4 | ? | — | — |
 
 *Updated after each plan completion*
+| Phase 12-resilience P01 | 1min | 1 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -39,6 +40,10 @@ Progress: [░░░░░░░░░░] 0% (v2.1)
 
 Decisions are logged in PROJECT.md Key Decisions table.
 All v2.0 decisions marked with outcomes.
+
+**v2.1 Decisions:**
+- Phase 12-01: Use detached process groups + SIGKILL(-pid) for build timeout orphan killing (not shell-based kill)
+- [Phase 12-resilience]: Use detached process groups + SIGKILL(-pid) for build timeout orphan killing
 
 ### Pending Todos
 
@@ -50,6 +55,6 @@ None.
 
 ## Session Continuity
 
-**Last session:** 2026-02-15
-**Stopped at:** Roadmap created for v2.1, ready to plan Phase 12
-**Resume file:** Next: `/hive:plan-phase 12`
+**Last session:** 2026-02-15T15:49:29.853Z
+**Stopped at:** Completed 12-01 Process Group Killing
+**Resume file:** None
