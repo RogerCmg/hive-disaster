@@ -372,19 +372,37 @@ function withFileLock(filePath, fn) {
 
 function execCommand(command, args, options) {
   const opts = options || {};
-  const result = spawnSync(command, args, {
+  const spawnOpts = {
     cwd: opts.cwd || process.cwd(),
     encoding: 'utf-8',
     timeout: opts.timeout,
     stdio: ['pipe', 'pipe', 'pipe'],
-  });
+  };
+
+  // On non-Windows: create process group so we can kill the entire tree on timeout
+  if (process.platform !== 'win32') {
+    spawnOpts.detached = true;
+  }
+
+  const result = spawnSync(command, args, spawnOpts);
+
+  // If timed out, kill the entire process group (not just the parent)
+  const timedOut = (result.error && result.error.code === 'ETIMEDOUT') || false;
+  if (timedOut && result.pid && process.platform !== 'win32') {
+    try {
+      process.kill(-result.pid, 'SIGKILL');
+    } catch (_) {
+      // Process group may already be dead — safe to ignore
+    }
+  }
+
   return {
     success: result.status === 0,
     exitCode: result.status,
     stdout: (result.stdout || '').trim(),
     stderr: (result.stderr || '').trim(),
     signal: result.signal || null,
-    timedOut: (result.error && result.error.code === 'ETIMEDOUT') || false,
+    timedOut: timedOut,
   };
 }
 
