@@ -194,6 +194,7 @@ function loadConfig(cwd) {
     git_build_command: null,
     git_build_timeout: 300,
     git_merge_strategy: 'merge',
+    git_require_build: false,
   };
 
   try {
@@ -238,6 +239,7 @@ function loadConfig(cwd) {
       git_build_command: gitSection.build_command ?? defaults.git_build_command,
       git_build_timeout: gitSection.build_timeout ?? defaults.git_build_timeout,
       git_merge_strategy: gitSection.merge_strategy ?? defaults.git_merge_strategy,
+      git_require_build: buildGates.require_build ?? defaults.git_require_build,
     };
   } catch {
     return defaults;
@@ -5396,22 +5398,48 @@ function cmdGitRunBuildGate(cwd, raw) {
 
   const buildCmd = config.git_build_command || detectBuildCommand(cwd).command;
   if (!buildCmd) {
+    if (config.git_require_build) {
+      output({ success: false, error: 'require_build is true but no build command detected. Set git.build_command in config.json or add a test script to package.json.', required: true }, raw, 'fail');
+      return;
+    }
     output({ success: true, skipped: true, reason: 'no build command detected' }, raw, 'skipped');
     return;
   }
 
   const timeoutMs = (config.git_build_timeout || 300) * 1000;
-  const parts = buildCmd.split(/\s+/);
-  const result = execCommand(parts[0], parts.slice(1), { cwd, timeout: timeoutMs });
 
+  // Support array of commands (pipeline) or single string
+  const commands = Array.isArray(buildCmd) ? buildCmd : [buildCmd];
+  let lastResult = null;
+
+  for (const cmd of commands) {
+    const parts = cmd.split(/\s+/);
+    lastResult = execCommand(parts[0], parts.slice(1), { cwd, timeout: timeoutMs });
+    if (!lastResult.success) {
+      output({
+        success: false,
+        command: cmd,
+        pipeline: commands.length > 1 ? commands : undefined,
+        failed_at: commands.indexOf(cmd) + 1,
+        exitCode: lastResult.exitCode,
+        timedOut: lastResult.timedOut || false,
+        stdout: lastResult.stdout.slice(0, 2000),
+        stderr: lastResult.stderr.slice(0, 2000),
+      }, raw, 'fail');
+      return;
+    }
+  }
+
+  // All commands passed
   output({
-    success: result.success,
-    command: buildCmd,
-    exitCode: result.exitCode,
-    timedOut: result.timedOut || false,
-    stdout: result.stdout.slice(0, 2000),
-    stderr: result.stderr.slice(0, 2000),
-  }, raw, result.success ? 'pass' : 'fail');
+    success: true,
+    command: commands.length === 1 ? commands[0] : commands.join(' && '),
+    pipeline: commands.length > 1 ? commands : undefined,
+    exitCode: 0,
+    timedOut: false,
+    stdout: (lastResult ? lastResult.stdout : '').slice(0, 2000),
+    stderr: (lastResult ? lastResult.stderr : '').slice(0, 2000),
+  }, raw, 'pass');
 }
 
 function cmdGitCreatePr(cwd, options, raw) {
@@ -5870,6 +5898,10 @@ function cmdGitRunGate2(cwd, branchName, raw) {
   const buildCmd = config.git_build_command || detectBuildCommand(cwd).command;
   if (!buildCmd) {
     execCommand('git', ['merge', '--abort'], { cwd });
+    if (config.git_require_build) {
+      output({ success: false, gate: 'pre_merge', error: 'require_build is true but no build command detected', required: true }, raw, 'fail');
+      return;
+    }
     output({ success: true, gate: 'pre_merge', skipped: true, reason: 'no build command' }, raw, 'skipped');
     return;
   }
@@ -5878,17 +5910,23 @@ function cmdGitRunGate2(cwd, branchName, raw) {
   const timeoutMs = (config.git_build_timeout || 300) * 1000;
   let buildResult;
   try {
-    const parts = buildCmd.split(/\s+/);
-    buildResult = execCommand(parts[0], parts.slice(1), { cwd, timeout: timeoutMs });
+    const commands = Array.isArray(buildCmd) ? buildCmd : [buildCmd];
+    for (const cmd of commands) {
+      const parts = cmd.split(/\s+/);
+      buildResult = execCommand(parts[0], parts.slice(1), { cwd, timeout: timeoutMs });
+      if (!buildResult.success) break;
+    }
   } finally {
     execCommand('git', ['merge', '--abort'], { cwd });
   }
 
+  const commands = Array.isArray(buildCmd) ? buildCmd : [buildCmd];
   output({
     success: buildResult.success,
     gate: 'pre_merge',
     branch: branchName,
-    command: buildCmd,
+    command: commands.length === 1 ? commands[0] : commands.join(' && '),
+    pipeline: commands.length > 1 ? commands : undefined,
     exitCode: buildResult.exitCode,
     timedOut: buildResult.timedOut || false,
     stdout: buildResult.stdout.slice(0, 2000),
