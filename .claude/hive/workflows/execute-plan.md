@@ -707,8 +707,26 @@ If queue submission succeeded:
 - Skip to step 6 (record PR result).
 
 If queue submission failed:
-- Log warning: "Failed to submit to merge queue. Falling back to self-merge."
-- Continue to step 4 (self-merge) as fallback.
+- Log warning: "Failed to submit to merge queue. Falling back to self-merge with Gate 2 validation."
+
+**Run Gate 2 (pre-merge build validation) before self-merge:**
+
+```bash
+CURRENT_BRANCH=$(git branch --show-current)
+GATE2_RESULT=$(node ./.claude/hive/bin/hive-tools.js git run-gate-2 --branch "${CURRENT_BRANCH}" --raw)
+GATE2_SUCCESS=$(echo "$GATE2_RESULT" | jq -r '.success')
+GATE2_SKIPPED=$(echo "$GATE2_RESULT" | jq -r '.skipped // false')
+```
+
+Handle Gate 2 result:
+
+| Condition | Action |
+|-----------|--------|
+| `GATE2_SKIPPED` is `"true"` | Gate 2 disabled or no build command. Log: "Gate 2 skipped (${reason}). Proceeding to self-merge." Continue to step 4. |
+| `GATE2_SUCCESS` is `"true"` | Gate 2 passed. Log: "Gate 2 passed. Proceeding to self-merge." Continue to step 4. |
+| `GATE2_SUCCESS` is `"false"` | Gate 2 failed. Present to user with same options as build_gate step: fix / skip / stop. If "fix": investigate, fix, re-commit, re-run Gate 2. If "skip": log "Gate 2 skipped by user. Proceeding to self-merge." Set `BUILD_GATE_RESULT="skipped_by_user"`. Continue to step 4. If "stop": abort, do NOT self-merge. Set `PR_FLOW_RESULT="stopped_gate2_failed"`. |
+
+- Continue to step 4 (self-merge) only if Gate 2 passed or was skipped.
 
 **If `REPO_MANAGER` is `false` or not set (default):**
 
