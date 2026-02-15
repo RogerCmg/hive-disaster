@@ -5,14 +5,16 @@
 See: .planning/PROJECT.md (updated 2026-02-15)
 
 **Core value:** Safe path from plan to merged code — quality scales with parallelism
-**Current focus:** Milestone v2.1 — Git Flow Hardening
+**Current focus:** Phase 12 — Resilience
 
 ## Current Position
 
-Phase: Not started (defining requirements)
-Plan: —
-Status: Defining requirements
-Last activity: 2026-02-15 — Milestone v2.1 started
+Phase: 12 of 15 (Resilience)
+Plan: 0 of ? in current phase
+Status: Ready to plan
+Last activity: 2026-02-15 — Roadmap created for v2.1 Git Flow Hardening
+
+Progress: [░░░░░░░░░░] 0% (v2.1)
 
 ## Performance Metrics
 
@@ -27,6 +29,7 @@ Last activity: 2026-02-15 — Milestone v2.1 started
 |-----------|--------|-------|-------|----------|
 | v1.0 Recall | 7 | 14 | ~7h | ~30m |
 | v2.0 Git Flow | 4 | 10 | ~35m | ~3.5m |
+| v2.1 Hardening | 4 | ? | — | — |
 
 *Updated after each plan completion*
 
@@ -35,7 +38,7 @@ Last activity: 2026-02-15 — Milestone v2.1 started
 ### Decisions
 
 Decisions are logged in PROJECT.md Key Decisions table.
-All v2.0 decisions marked with outcomes (✓ Good).
+All v2.0 decisions marked with outcomes.
 
 ### Pending Todos
 
@@ -48,5 +51,5 @@ None.
 ## Session Continuity
 
 **Last session:** 2026-02-15
-**Stopped at:** Milestone v2.1 started, defining requirements
-**Resume file:** Next: define requirements → create roadmap
+**Stopped at:** Roadmap created for v2.1, ready to plan Phase 12
+**Resume file:** Next: `/hive:plan-phase 12`

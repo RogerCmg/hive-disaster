@@ -72,24 +72,24 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| RESIL-01 | — | Pending |
-| RESIL-02 | — | Pending |
-| RESIL-03 | — | Pending |
-| BUILD-01 | — | Pending |
-| BUILD-02 | — | Pending |
-| BUILD-03 | — | Pending |
-| MULTI-01 | — | Pending |
-| MULTI-02 | — | Pending |
-| MULTI-03 | — | Pending |
-| DX-01 | — | Pending |
-| DX-02 | — | Pending |
-| DX-03 | — | Pending |
+| RESIL-01 | Phase 12 | Pending |
+| RESIL-02 | Phase 12 | Pending |
+| RESIL-03 | Phase 12 | Pending |
+| BUILD-01 | Phase 13 | Pending |
+| BUILD-02 | Phase 13 | Pending |
+| BUILD-03 | Phase 13 | Pending |
+| MULTI-01 | Phase 14 | Pending |
+| MULTI-02 | Phase 14 | Pending |
+| MULTI-03 | Phase 14 | Pending |
+| DX-01 | Phase 15 | Pending |
+| DX-02 | Phase 15 | Pending |
+| DX-03 | Phase 15 | Pending |
 
 **Coverage:**
 - v2.1 requirements: 12 total
-- Mapped to phases: 0
-- Unmapped: 12 ⚠️
+- Mapped to phases: 12
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-02-15*
-*Last updated: 2026-02-15 after initial definition*
+*Last updated: 2026-02-15 after roadmap creation (traceability populated)*

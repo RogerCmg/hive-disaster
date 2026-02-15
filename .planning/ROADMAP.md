@@ -4,6 +4,7 @@
 
 - ✅ **v1.0 Hive Recall** — Phases 1-7 (shipped 2026-02-12)
 - ✅ **v2.0 Hive Pro Git Flow** — Phases 8-11 (shipped 2026-02-12)
+- 🚧 **v2.1 Git Flow Hardening** — Phases 12-15 (in progress)
 
 ## Phases
 
@@ -30,7 +31,70 @@
 
 </details>
 
+### 🚧 v2.1 Git Flow Hardening (In Progress)
+
+**Milestone Goal:** Harden the v2.0 git workflow with resilience fixes, build pipeline flexibility, multi-worker safety, and DX improvements — closing 12 verified gaps found via code audit.
+
+#### Phase 12: Resilience
+**Goal**: Git operations recover gracefully from failures instead of leaving broken state
+**Depends on**: Phase 11 (existing git flow infrastructure)
+**Requirements**: RESIL-01, RESIL-02, RESIL-03
+**Success Criteria** (what must be TRUE):
+  1. When queue submission fails, the fallback path runs Gate 2 validation before self-merging to dev
+  2. Between execution waves, dev branch is synced via pull so later waves build on merged work from earlier waves
+  3. When a build times out, the entire process tree is killed (not just the parent), leaving no orphan processes
+**Plans**: TBD
+
+Plans:
+- [ ] 12-01: TBD
+- [ ] 12-02: TBD
+
+#### Phase 13: Build Pipeline
+**Goal**: Build commands support real-world project complexity — multi-step pipelines, separate main-branch validation, and explicit build enforcement
+**Depends on**: Phase 12 (resilience fixes to timeout killing affect build execution)
+**Requirements**: BUILD-01, BUILD-02, BUILD-03
+**Success Criteria** (what must be TRUE):
+  1. build_command accepts an array of commands that execute sequentially, stopping on first failure (e.g., ["npm run lint", "npm test", "npm run build"])
+  2. Gate 3 (pre-main merge) uses a separate pre_main_command when configured, falling back to build_command when not set
+  3. When require_build is true and no build command is detected, the gate errors explicitly instead of silently skipping
+**Plans**: TBD
+
+Plans:
+- [ ] 13-01: TBD
+- [ ] 13-02: TBD
+
+#### Phase 14: Multi-Worker Safety
+**Goal**: Multiple workers can safely share the merge queue without conflicts, with per-plan control over merge behavior and configurable branch protection
+**Depends on**: Phase 12 (resilience fixes to queue fallback)
+**Requirements**: MULTI-01, MULTI-02, MULTI-03
+**Success Criteria** (what must be TRUE):
+  1. Queue entries contain lease_owner and lease_expires_at fields, preventing two workers from processing the same entry
+  2. A plan can specify its merge strategy in PLAN.md frontmatter, overriding the global config.json merge_strategy
+  3. Protected branches are read from config (not hardcoded), so projects using branches other than main/master are supported
+**Plans**: TBD
+
+Plans:
+- [ ] 14-01: TBD
+- [ ] 14-02: TBD
+
+#### Phase 15: Developer Experience
+**Goal**: Milestone completion produces publishable artifacts and handles post-merge logistics automatically
+**Depends on**: Phase 13 (build pipeline for CHANGELOG generation context), Phase 14 (merge strategy for push behavior)
+**Requirements**: DX-01, DX-02, DX-03
+**Success Criteria** (what must be TRUE):
+  1. On milestone completion, a CHANGELOG.md is automatically generated from all SUMMARY.md files across the milestone's phases
+  2. After dev-to-main merge, the system either returns a needs_push flag or auto-pushes to remote based on config setting
+  3. Rebase merge strategy is documented in the config template with usage guidance, so users know when and how to use it
+**Plans**: TBD
+
+Plans:
+- [ ] 15-01: TBD
+- [ ] 15-02: TBD
+
 ## Progress
+
+**Execution Order:**
+Phases execute in numeric order: 12 -> 13 -> 14 -> 15
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
@@ -45,7 +109,11 @@
 | 9. Branch Lifecycle & Build Gates | v2.0 | 2/2 | Complete | 2026-02-12 |
 | 10. PR & Workflow Integration | v2.0 | 3/3 | Complete | 2026-02-12 |
 | 11. Repo Manager | v2.0 | 3/3 | Complete | 2026-02-12 |
+| 12. Resilience | v2.1 | 0/? | Not started | - |
+| 13. Build Pipeline | v2.1 | 0/? | Not started | - |
+| 14. Multi-Worker Safety | v2.1 | 0/? | Not started | - |
+| 15. Developer Experience | v2.1 | 0/? | Not started | - |
 
 ---
 *Roadmap created: 2026-02-11*
-*Last updated: 2026-02-12 after v2.0 milestone completion*
+*Last updated: 2026-02-15 after v2.1 roadmap creation*
