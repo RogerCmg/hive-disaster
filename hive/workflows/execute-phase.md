@@ -455,7 +455,23 @@ Execute each wave. Within a wave: parallel if `PARALLELIZATION=true`, sequential
 
    Branch cleanup is BEST EFFORT. Stale branches are informational, not harmful.
 
-7. **Shutdown wave executors:**
+7. **Sync dev branch (git flow "github" only):**
+
+   After branch cleanup and BEFORE proceeding to next wave, pull dev to incorporate all merged work from this wave. This ensures next wave's plan branches fork from the latest dev state.
+
+   ```bash
+   # Only sync if on dev branch and git flow is active
+   if [ "$GIT_FLOW" = "github" ]; then
+     CURRENT=$(git branch --show-current)
+     if [ "$CURRENT" = "${GIT_DEV_BRANCH}" ]; then
+       git pull origin "${GIT_DEV_BRANCH}" 2>/dev/null || true
+     fi
+   fi
+   ```
+
+   If pull fails (e.g., no remote, network error): log warning "Could not sync dev from remote. Continuing with local state." Do NOT block execution -- local merges from this wave are already on dev. The pull primarily helps when remote has changes from other sources.
+
+8. **Shutdown wave executors:**
 
    After wave completion, send shutdown requests to all executors in the wave:
    ```
@@ -469,7 +485,7 @@ Execute each wave. Within a wave: parallel if `PARALLELIZATION=true`, sequential
    Wait for shutdown confirmations. If an executor rejects (still processing),
    wait and retry after 30 seconds.
 
-8. **Handle failures:**
+9. **Handle failures:**
 
    **classifyHandoffIfNeeded bug:** Same handling as current. If executor sends
    error containing this string, run spot-checks. Pass = success.
@@ -480,7 +496,7 @@ Execute each wave. Within a wave: parallel if `PARALLELIZATION=true`, sequential
    (no messages for extended period), check SUMMARY.md on disk. If present with
    Self-Check: PASSED, treat as success. Otherwise, report as failure.
 
-9. **Proceed to next wave.**
+10. **Proceed to next wave.**
 
 </team_mode>
 
@@ -609,9 +625,25 @@ checkpoint_handling step for checkpoints, continuation agents for resumption.
 
    Branch cleanup is BEST EFFORT. Stale branches are informational, not harmful.
 
-7. **Execute checkpoint plans between waves** — see `<checkpoint_handling>`.
+7. **Sync dev branch (git flow "github" only):**
 
-8. **Proceed to next wave.**
+   After branch cleanup and BEFORE proceeding to next wave, pull dev to incorporate all merged work from this wave. This ensures next wave's plan branches fork from the latest dev state.
+
+   ```bash
+   # Only sync if on dev branch and git flow is active
+   if [ "$GIT_FLOW" = "github" ]; then
+     CURRENT=$(git branch --show-current)
+     if [ "$CURRENT" = "${GIT_DEV_BRANCH}" ]; then
+       git pull origin "${GIT_DEV_BRANCH}" 2>/dev/null || true
+     fi
+   fi
+   ```
+
+   If pull fails: log warning but do not block execution. Local merges are already present.
+
+8. **Execute checkpoint plans between waves** — see `<checkpoint_handling>`.
+
+9. **Proceed to next wave.**
 </standalone_mode>
 </step>
 
@@ -819,6 +851,10 @@ while remaining_plans or active_plans:
   if message is "PLAN COMPLETE:":
     completed_plans.add(plan.id)
     active_plans.remove(plan.id)
+
+    # Sync dev if git flow is active (pulls merged work so next branch forks from latest)
+    if GIT_FLOW == "github":
+      git pull origin "${GIT_DEV_BRANCH}" 2>/dev/null || true
 
     # Check if any remaining plans can now start
     for plan in remaining_plans:

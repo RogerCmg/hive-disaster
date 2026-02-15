@@ -10,9 +10,9 @@ See: .planning/PROJECT.md (updated 2026-02-15)
 ## Current Position
 
 Phase: 12 of 15 (Resilience)
-Plan: 1 of 2 in current phase
+Plan: 2 of 2 in current phase
 Status: Executing
-Last activity: 2026-02-15 — Completed 12-01 Process Group Killing
+Last activity: 2026-02-15 — Completed 12-02 Dev Sync & Gate 2 Fallback
 
 Progress: [█░░░░░░░░░] 10% (v2.1)
 
@@ -33,6 +33,7 @@ Progress: [█░░░░░░░░░] 10% (v2.1)
 
 *Updated after each plan completion*
 | Phase 12-resilience P01 | 1min | 1 tasks | 2 files |
+| Phase 12-resilience P02 | 3min | 2 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -43,7 +44,7 @@ All v2.0 decisions marked with outcomes.
 
 **v2.1 Decisions:**
 - Phase 12-01: Use detached process groups + SIGKILL(-pid) for build timeout orphan killing (not shell-based kill)
-- [Phase 12-resilience]: Use detached process groups + SIGKILL(-pid) for build timeout orphan killing
+- Phase 12-02: Dev sync gated on git flow "github" + non-blocking pull; Gate 2 fallback uses fix/skip/stop options
 
 ### Pending Todos
 
@@ -55,6 +56,6 @@ None.
 
 ## Session Continuity
 
-**Last session:** 2026-02-15T15:49:29.853Z
-**Stopped at:** Completed 12-01 Process Group Killing
+**Last session:** 2026-02-15T15:55:26Z
+**Stopped at:** Completed 12-02 Dev Sync & Gate 2 Fallback
 **Resume file:** None
