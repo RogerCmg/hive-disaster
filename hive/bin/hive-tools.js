@@ -196,6 +196,8 @@ function loadConfig(cwd) {
     git_build_timeout: 300,
     git_merge_strategy: 'merge',
     git_require_build: false,
+    git_main_branch: 'main',
+    git_protected_branches: [],
   };
 
   try {
@@ -242,6 +244,8 @@ function loadConfig(cwd) {
       git_build_timeout: gitSection.build_timeout ?? defaults.git_build_timeout,
       git_merge_strategy: gitSection.merge_strategy ?? defaults.git_merge_strategy,
       git_require_build: buildGates.require_build ?? defaults.git_require_build,
+      git_main_branch: gitSection.main_branch ?? defaults.git_main_branch,
+      git_protected_branches: gitSection.protected_branches ?? defaults.git_protected_branches,
     };
   } catch {
     return defaults;
@@ -5507,17 +5511,12 @@ function cmdGitMergeDevToMain(cwd, raw) {
   }
 
   const devBranch = config.git_dev_branch || 'dev';
+  const mainBranch = config.git_main_branch || 'main';
 
-  // Try checkout main first, fallback to master
-  let mainBranch = 'main';
-  let checkoutResult = execCommand('git', ['checkout', 'main'], { cwd });
+  let checkoutResult = execCommand('git', ['checkout', mainBranch], { cwd });
   if (!checkoutResult.success) {
-    mainBranch = 'master';
-    checkoutResult = execCommand('git', ['checkout', 'master'], { cwd });
-    if (!checkoutResult.success) {
-      output({ success: false, error: 'Could not checkout main or master branch' }, raw, '');
-      return;
-    }
+    output({ success: false, error: 'Could not checkout main branch: ' + mainBranch }, raw, '');
+    return;
   }
 
   const mergeResult = execCommand('git', ['merge', '--no-ff', devBranch, '-m', 'Merge ' + devBranch + ' into ' + mainBranch], { cwd });
@@ -5585,7 +5584,10 @@ function cmdGitDeletePlanBranch(cwd, branchName, raw) {
 
   // Safety: refuse to delete protected branches
   const devBranch = config.git_dev_branch || 'dev';
-  const protectedBranches = ['main', 'master', devBranch];
+  const configProtected = config.git_protected_branches || [];
+  const protectedBranches = configProtected.length > 0
+    ? [...new Set([...configProtected, devBranch])]
+    : [config.git_main_branch || 'main', devBranch];
   if (protectedBranches.includes(branchName)) {
     output({ success: false, error: 'Cannot delete protected branch: ' + branchName }, raw, '');
     return;
@@ -5679,6 +5681,8 @@ function cmdGitQueueSubmit(cwd, options, raw) {
       pr_url: options.pr_url || null,
       checks: { conflicts: null, build: null },
       error: null,
+      lease_owner: null,
+      lease_expires_at: null,
       merged_at: null,
     };
 
@@ -5713,9 +5717,12 @@ function cmdGitQueueStatus(cwd, raw) {
 
   const queue = data.queue || [];
   const merged = data.merged || [];
+  const now = new Date().toISOString();
   const pending = queue.filter(e => e.status === 'pending');
   const inProgress = queue.filter(e => ['checking', 'building', 'merging'].includes(e.status));
   const failed = queue.filter(e => ['conflict', 'build_failed', 'merge_failed'].includes(e.status));
+  const leased = queue.filter(e => e.lease_owner && e.lease_expires_at && e.lease_expires_at > now);
+  const staleLeases = queue.filter(e => e.lease_owner && e.lease_expires_at && e.lease_expires_at <= now);
 
   output({
     success: true,
@@ -5723,11 +5730,15 @@ function cmdGitQueueStatus(cwd, raw) {
     in_progress_count: inProgress.length,
     failed_count: failed.length,
     merged_count: merged.length,
+    leased_count: leased.length,
+    stale_lease_count: staleLeases.length,
     dev_head: data.dev_head || null,
     last_updated: data.last_updated || null,
     pending: pending,
     failed: failed,
-  }, raw, JSON.stringify({ pending_count: pending.length, failed_count: failed.length, merged_count: merged.length }));
+    leased: leased,
+    stale_leases: staleLeases,
+  }, raw, JSON.stringify({ pending_count: pending.length, failed_count: failed.length, merged_count: merged.length, leased_count: leased.length, stale_lease_count: staleLeases.length }));
 }
 
 function cmdGitQueueUpdate(cwd, options, raw) {
@@ -5770,7 +5781,19 @@ function cmdGitQueueUpdate(cwd, options, raw) {
     if (options.pr_number) entry.pr_number = parseInt(options.pr_number, 10);
     if (options.pr_url) entry.pr_url = options.pr_url;
 
+    // Lease management
+    if (options.lease_owner) {
+      entry.lease_owner = options.lease_owner;
+      entry.lease_expires_at = new Date(Date.now() + (parseInt(options.lease_ttl, 10) || 300) * 1000).toISOString();
+    }
+
     const terminalStatuses = ['merged', 'conflict', 'build_failed', 'merge_failed'];
+
+    // Clear lease on terminal status
+    if (newStatus && terminalStatuses.includes(newStatus)) {
+      entry.lease_owner = null;
+      entry.lease_expires_at = null;
+    }
 
     if (newStatus === 'merged') {
       entry.merged_at = new Date().toISOString();
@@ -6420,6 +6443,8 @@ async function main() {
         const mergeShaIdx = args.indexOf('--merge-sha');
         const prNumIdx = args.indexOf('--pr-number');
         const prUrlIdx = args.indexOf('--pr-url');
+        const leaseOwnerIdx = args.indexOf('--lease-owner');
+        const leaseTtlIdx = args.indexOf('--lease-ttl');
         cmdGitQueueUpdate(cwd, {
           id: idIdx !== -1 ? args[idIdx + 1] : null,
           status: statusIdx !== -1 ? args[statusIdx + 1] : null,
@@ -6427,6 +6452,8 @@ async function main() {
           merge_sha: mergeShaIdx !== -1 ? args[mergeShaIdx + 1] : null,
           pr_number: prNumIdx !== -1 ? args[prNumIdx + 1] : null,
           pr_url: prUrlIdx !== -1 ? args[prUrlIdx + 1] : null,
+          lease_owner: leaseOwnerIdx !== -1 ? args[leaseOwnerIdx + 1] : null,
+          lease_ttl: leaseTtlIdx !== -1 ? args[leaseTtlIdx + 1] : null,
         }, raw);
       } else if (subcommand === 'queue-drain') {
         cmdGitQueueDrain(cwd, raw);
