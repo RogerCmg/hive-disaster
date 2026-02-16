@@ -60,8 +60,8 @@ Plans:
 **Plans**: 2 plans
 
 Plans:
-- [ ] 13-01-PLAN.md — Array build pipeline + require_build enforcement (BUILD-01, BUILD-03)
-- [ ] 13-02-PLAN.md — Gate 3 pre_main_command with fallback to build_command (BUILD-02)
+- [x] 13-01-PLAN.md — Array build pipeline + require_build enforcement (BUILD-01, BUILD-03) — completed 2026-02-15
+- [x] 13-02-PLAN.md — Gate 3 pre_main_command with fallback to build_command (BUILD-02) — completed 2026-02-15
 
 #### Phase 14: Multi-Worker Safety
 **Goal**: Multiple workers can safely share the merge queue without conflicts, with per-plan control over merge behavior and configurable branch protection
@@ -110,10 +110,10 @@ Phases execute in numeric order: 12 -> 13 -> 14 -> 15
 | 10. PR & Workflow Integration | v2.0 | 3/3 | Complete | 2026-02-12 |
 | 11. Repo Manager | v2.0 | 3/3 | Complete | 2026-02-12 |
 | 12. Resilience | v2.1 | 2/2 | Complete | 2026-02-15 |
-| 13. Build Pipeline | v2.1 | 0/? | Not started | - |
+| 13. Build Pipeline | v2.1 | 2/2 | Complete | 2026-02-15 |
 | 14. Multi-Worker Safety | v2.1 | 0/? | Not started | - |
 | 15. Developer Experience | v2.1 | 0/? | Not started | - |
 
 ---
 *Roadmap created: 2026-02-11*
-*Last updated: 2026-02-15 after Phase 12 completion*
+*Last updated: 2026-02-15 after Phase 13 completion*
