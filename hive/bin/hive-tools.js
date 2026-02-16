@@ -5480,7 +5480,7 @@ function cmdGitCreatePr(cwd, options, raw) {
   }
 }
 
-function cmdGitSelfMergePr(cwd, prNumber, raw) {
+function cmdGitSelfMergePr(cwd, prNumber, strategyOverride, raw) {
   const config = loadConfig(cwd);
   if (config.git_flow === 'none') {
     output({ success: true, skipped: true, reason: 'git.flow is none' }, raw, 'skipped');
@@ -5492,7 +5492,14 @@ function cmdGitSelfMergePr(cwd, prNumber, raw) {
     return;
   }
 
-  const mergeStrategy = config.git_merge_strategy || 'merge';
+  // Validate strategy override if provided
+  const validStrategies = ['merge', 'squash', 'rebase'];
+  if (strategyOverride && !validStrategies.includes(strategyOverride)) {
+    output({ success: false, error: 'Invalid merge strategy: ' + strategyOverride + '. Must be one of: ' + validStrategies.join(', ') }, raw, '');
+    return;
+  }
+
+  const mergeStrategy = strategyOverride || config.git_merge_strategy || 'merge';
   const ghArgs = ['pr', 'merge', prNumber, '--' + mergeStrategy, '--delete-branch'];
   const result = execCommand('gh', ghArgs, { cwd });
 
@@ -5683,6 +5690,7 @@ function cmdGitQueueSubmit(cwd, options, raw) {
       error: null,
       lease_owner: null,
       lease_expires_at: null,
+      merge_strategy: options.merge_strategy || null,
       merged_at: null,
     };
 
@@ -6412,7 +6420,9 @@ async function main() {
           body: bodyIdx !== -1 ? args[bodyIdx + 1] : null,
         }, raw);
       } else if (subcommand === 'self-merge-pr') {
-        cmdGitSelfMergePr(cwd, args[2], raw);
+        const strategyIdx = args.indexOf('--strategy');
+        const strategy = strategyIdx !== -1 ? args[strategyIdx + 1] : null;
+        cmdGitSelfMergePr(cwd, args[2], strategy, raw);
       } else if (subcommand === 'merge-dev-to-main') {
         cmdGitMergeDevToMain(cwd, raw);
       } else if (subcommand === 'check-conflicts') {
@@ -6427,12 +6437,14 @@ async function main() {
         const waveIdx = args.indexOf('--wave');
         const prNumIdx = args.indexOf('--pr-number');
         const prUrlIdx = args.indexOf('--pr-url');
+        const mergeStratIdx = args.indexOf('--merge-strategy');
         cmdGitQueueSubmit(cwd, {
           plan_id: planIdIdx !== -1 ? args[planIdIdx + 1] : null,
           branch: branchIdx !== -1 ? args[branchIdx + 1] : null,
           wave: waveIdx !== -1 ? args[waveIdx + 1] : null,
           pr_number: prNumIdx !== -1 ? args[prNumIdx + 1] : null,
           pr_url: prUrlIdx !== -1 ? args[prUrlIdx + 1] : null,
+          merge_strategy: mergeStratIdx !== -1 ? args[mergeStratIdx + 1] : null,
         }, raw);
       } else if (subcommand === 'queue-status') {
         cmdGitQueueStatus(cwd, raw);
