@@ -71,11 +71,11 @@ Plans:
   1. Queue entries contain lease_owner and lease_expires_at fields, preventing two workers from processing the same entry
   2. A plan can specify its merge strategy in PLAN.md frontmatter, overriding the global config.json merge_strategy
   3. Protected branches are read from config (not hardcoded), so projects using branches other than main/master are supported
-**Plans**: TBD
+**Plans**: 2 plans
 
 Plans:
-- [ ] 14-01: TBD
-- [ ] 14-02: TBD
+- [ ] 14-01-PLAN.md — Queue lease fields + configurable protected branches (MULTI-01, MULTI-03)
+- [ ] 14-02-PLAN.md — Per-plan merge strategy via PLAN.md frontmatter override (MULTI-02)
 
 #### Phase 15: Developer Experience
 **Goal**: Milestone completion produces publishable artifacts and handles post-merge logistics automatically
