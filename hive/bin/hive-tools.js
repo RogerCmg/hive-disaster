@@ -198,6 +198,7 @@ function loadConfig(cwd) {
     git_require_build: false,
     git_main_branch: 'main',
     git_protected_branches: [],
+    git_auto_push: false,
   };
 
   try {
@@ -246,6 +247,7 @@ function loadConfig(cwd) {
       git_require_build: buildGates.require_build ?? defaults.git_require_build,
       git_main_branch: gitSection.main_branch ?? defaults.git_main_branch,
       git_protected_branches: gitSection.protected_branches ?? defaults.git_protected_branches,
+      git_auto_push: gitSection.auto_push ?? defaults.git_auto_push,
     };
   } catch {
     return defaults;
@@ -3619,6 +3621,115 @@ function cmdPhaseComplete(cwd, phaseNum, raw) {
   output(result, raw);
 }
 
+// ─── CHANGELOG Generation ────────────────────────────────────────────────────
+
+function generateChangelog(cwd, version, milestoneName, phases) {
+  const changelogPath = path.join(cwd, '.planning', 'CHANGELOG.md');
+  const today = new Date().toISOString().split('T')[0];
+
+  // Categorize entries by type
+  const added = [];
+  const changed = [];
+  const fixed = [];
+
+  for (const phase of phases) {
+    const phaseName = phase.name || '';
+    for (const summary of (phase.summaries || [])) {
+      const oneLiner = summary.oneLiner || '';
+      const accomplishments = summary.accomplishments || [];
+
+      // Classify based on commit type prefixes in one-liners
+      const lowerOneLiner = oneLiner.toLowerCase();
+      if (lowerOneLiner.startsWith('fix') || lowerOneLiner.includes('bug fix') || lowerOneLiner.includes('fixed')) {
+        if (oneLiner) fixed.push(oneLiner);
+      } else if (lowerOneLiner.startsWith('refactor') || lowerOneLiner.startsWith('change') || lowerOneLiner.startsWith('update') || lowerOneLiner.includes('redesign')) {
+        if (oneLiner) changed.push(oneLiner);
+      } else {
+        if (oneLiner) added.push(oneLiner);
+      }
+
+      // Add accomplishment bullets as additional entries
+      for (const acc of accomplishments) {
+        const lowerAcc = acc.toLowerCase();
+        if (lowerAcc.startsWith('fix') || lowerAcc.includes('bug fix')) {
+          fixed.push(acc);
+        } else if (lowerAcc.startsWith('refactor') || lowerAcc.startsWith('change') || lowerAcc.startsWith('update')) {
+          changed.push(acc);
+        } else {
+          added.push(acc);
+        }
+      }
+    }
+  }
+
+  // Build version section
+  let section = `## [${version}] - ${today}\n`;
+  if (added.length > 0) {
+    section += `\n### Added\n`;
+    for (const entry of added) {
+      section += `- ${entry}\n`;
+    }
+  }
+  if (changed.length > 0) {
+    section += `\n### Changed\n`;
+    for (const entry of changed) {
+      section += `- ${entry}\n`;
+    }
+  }
+  if (fixed.length > 0) {
+    section += `\n### Fixed\n`;
+    for (const entry of fixed) {
+      section += `- ${entry}\n`;
+    }
+  }
+
+  // If no entries at all, add a placeholder
+  if (added.length === 0 && changed.length === 0 && fixed.length === 0) {
+    section += `\n### Added\n- ${milestoneName} milestone completed\n`;
+  }
+
+  // Write or update CHANGELOG.md
+  if (fs.existsSync(changelogPath)) {
+    let existing = fs.readFileSync(changelogPath, 'utf-8');
+
+    // Insert after ## [Unreleased] section if it exists
+    const unreleasedIndex = existing.indexOf('## [Unreleased]');
+    if (unreleasedIndex !== -1) {
+      // Find the next ## heading after [Unreleased]
+      const afterUnreleased = existing.indexOf('\n## [', unreleasedIndex + 1);
+      if (afterUnreleased !== -1) {
+        // Insert between [Unreleased] section and next version
+        existing = existing.slice(0, afterUnreleased) + '\n' + section + existing.slice(afterUnreleased);
+      } else {
+        // [Unreleased] is last section — append after it
+        existing = existing.trimEnd() + '\n\n' + section;
+      }
+    } else {
+      // No [Unreleased] — insert after the header block (first blank line after header)
+      const headerEnd = existing.indexOf('\n\n');
+      if (headerEnd !== -1) {
+        existing = existing.slice(0, headerEnd + 2) + section + '\n' + existing.slice(headerEnd + 2);
+      } else {
+        existing = existing + '\n\n' + section;
+      }
+    }
+
+    fs.writeFileSync(changelogPath, existing, 'utf-8');
+  } else {
+    // Create new CHANGELOG.md
+    const header = `# Changelog\n\nAll notable changes to this project.\n\nFormat follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).\n\n`;
+    fs.writeFileSync(changelogPath, header + section, 'utf-8');
+  }
+
+  return {
+    path: changelogPath,
+    entries: added.length + changed.length + fixed.length,
+    added: added.length,
+    changed: changed.length,
+    fixed: fixed.length,
+  };
+}
+
 // ─── Milestone Complete ───────────────────────────────────────────────────────
 
 function cmdMilestoneComplete(cwd, version, options, raw) {
@@ -3643,6 +3754,7 @@ function cmdMilestoneComplete(cwd, version, options, raw) {
   let totalPlans = 0;
   let totalTasks = 0;
   const accomplishments = [];
+  const phaseData = []; // For CHANGELOG generation
 
   try {
     const entries = fs.readdirSync(phasesDir, { withFileTypes: true });
@@ -3655,19 +3767,39 @@ function cmdMilestoneComplete(cwd, version, options, raw) {
       const summaries = phaseFiles.filter(f => f.endsWith('-SUMMARY.md') || f === 'SUMMARY.md');
       totalPlans += plans.length;
 
+      const phaseSummaries = [];
+
       // Extract one-liners from summaries
       for (const s of summaries) {
         try {
           const content = fs.readFileSync(path.join(phasesDir, dir, s), 'utf-8');
           const fm = extractFrontmatter(content);
-          if (fm['one-liner']) {
-            accomplishments.push(fm['one-liner']);
+          const oneLiner = fm['one-liner'] || '';
+          if (oneLiner) {
+            accomplishments.push(oneLiner);
           }
+
+          // Extract accomplishment bullets from body
+          const accBullets = [];
+          const accMatch = content.match(/##\s*(?:Key\s+)?Accomplishments?\s*\n([\s\S]*?)(?=\n##|\n---|\Z)/i);
+          if (accMatch) {
+            const bullets = accMatch[1].match(/^[-*]\s+(.+)/gm);
+            if (bullets) {
+              for (const b of bullets) {
+                accBullets.push(b.replace(/^[-*]\s+/, '').trim());
+              }
+            }
+          }
+
+          phaseSummaries.push({ oneLiner, accomplishments: accBullets });
+
           // Count tasks
           const taskMatches = content.match(/##\s*Task\s*\d+/gi) || [];
           totalTasks += taskMatches.length;
         } catch {}
       }
+
+      phaseData.push({ name: dir, summaries: phaseSummaries });
     }
   } catch {}
 
@@ -3719,6 +3851,9 @@ function cmdMilestoneComplete(cwd, version, options, raw) {
     fs.writeFileSync(statePath, stateContent, 'utf-8');
   }
 
+  // Generate CHANGELOG.md
+  const changelogResult = generateChangelog(cwd, version, milestoneName, phaseData);
+
   const result = {
     version,
     name: milestoneName,
@@ -3731,7 +3866,10 @@ function cmdMilestoneComplete(cwd, version, options, raw) {
       roadmap: fs.existsSync(path.join(archiveDir, `${version}-ROADMAP.md`)),
       requirements: fs.existsSync(path.join(archiveDir, `${version}-REQUIREMENTS.md`)),
       audit: fs.existsSync(path.join(archiveDir, `${version}-MILESTONE-AUDIT.md`)),
+      changelog: changelogResult.path,
     },
+    changelog_generated: true,
+    changelog_entries: changelogResult.entries,
     milestones_updated: true,
     state_updated: fs.existsSync(statePath),
   };
@@ -5528,7 +5666,19 @@ function cmdGitMergeDevToMain(cwd, raw) {
 
   const mergeResult = execCommand('git', ['merge', '--no-ff', devBranch, '-m', 'Merge ' + devBranch + ' into ' + mainBranch], { cwd });
   if (mergeResult.success) {
-    output({ success: true, from: devBranch, to: mainBranch, strategy: 'no-ff' }, raw, 'merged');
+    const resultObj = { success: true, from: devBranch, to: mainBranch, strategy: 'no-ff', auto_push: config.git_auto_push };
+
+    if (config.git_auto_push) {
+      const pushResult = execCommand('git', ['push', 'origin', mainBranch], { cwd });
+      resultObj.pushed = pushResult.success;
+      if (!pushResult.success) {
+        resultObj.push_error = pushResult.stderr;
+      }
+    } else {
+      resultObj.needs_push = true;
+    }
+
+    output(resultObj, raw, 'merged');
   } else {
     // Abort the failed merge
     execCommand('git', ['merge', '--abort'], { cwd });
