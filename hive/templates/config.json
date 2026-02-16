@@ -56,6 +56,7 @@
     "pre_main_command": null,
     "build_timeout": 300,
     "merge_strategy": "merge",
+    "auto_push": false,
     "protected_branches": [],
     "repo_manager": false
   },
