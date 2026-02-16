@@ -88,8 +88,8 @@ Plans:
 **Plans**: 2 plans
 
 Plans:
-- [ ] 15-01-PLAN.md — CHANGELOG generation + auto-push after merge (DX-01, DX-02)
-- [ ] 15-02-PLAN.md — Merge strategy documentation in config template and references (DX-03)
+- [x] 15-01-PLAN.md — CHANGELOG generation + auto-push after merge (DX-01, DX-02) — completed 2026-02-16
+- [x] 15-02-PLAN.md — Merge strategy documentation in config template and references (DX-03) — completed 2026-02-16
 
 ## Progress
 
@@ -112,8 +112,8 @@ Phases execute in numeric order: 12 -> 13 -> 14 -> 15
 | 12. Resilience | v2.1 | 2/2 | Complete | 2026-02-15 |
 | 13. Build Pipeline | v2.1 | 2/2 | Complete | 2026-02-15 |
 | 14. Multi-Worker Safety | v2.1 | 2/2 | Complete | 2026-02-15 |
-| 15. Developer Experience | v2.1 | 0/2 | Not started | - |
+| 15. Developer Experience | v2.1 | 2/2 | Complete | 2026-02-16 |
 
 ---
 *Roadmap created: 2026-02-11*
-*Last updated: 2026-02-16 after Phase 15 planning*
+*Last updated: 2026-02-16 after Phase 15 execution complete*
