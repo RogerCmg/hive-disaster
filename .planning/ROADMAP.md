@@ -74,8 +74,8 @@ Plans:
 **Plans**: 2 plans
 
 Plans:
-- [ ] 14-01-PLAN.md — Queue lease fields + configurable protected branches (MULTI-01, MULTI-03)
-- [ ] 14-02-PLAN.md — Per-plan merge strategy via PLAN.md frontmatter override (MULTI-02)
+- [x] 14-01-PLAN.md — Queue lease fields + configurable protected branches (MULTI-01, MULTI-03) — completed 2026-02-15
+- [x] 14-02-PLAN.md — Per-plan merge strategy via PLAN.md frontmatter override (MULTI-02) — completed 2026-02-15
 
 #### Phase 15: Developer Experience
 **Goal**: Milestone completion produces publishable artifacts and handles post-merge logistics automatically
@@ -111,9 +111,9 @@ Phases execute in numeric order: 12 -> 13 -> 14 -> 15
 | 11. Repo Manager | v2.0 | 3/3 | Complete | 2026-02-12 |
 | 12. Resilience | v2.1 | 2/2 | Complete | 2026-02-15 |
 | 13. Build Pipeline | v2.1 | 2/2 | Complete | 2026-02-15 |
-| 14. Multi-Worker Safety | v2.1 | 0/? | Not started | - |
+| 14. Multi-Worker Safety | v2.1 | 2/2 | Complete | 2026-02-15 |
 | 15. Developer Experience | v2.1 | 0/? | Not started | - |
 
 ---
 *Roadmap created: 2026-02-11*
-*Last updated: 2026-02-15 after Phase 13 completion*
+*Last updated: 2026-02-15 after Phase 14 completion*
