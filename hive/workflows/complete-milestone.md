@@ -148,6 +148,20 @@ Key accomplishments for this milestone:
 
 </step>
 
+<step name="generate_changelog">
+
+The `milestone complete` CLI command automatically generates `.planning/CHANGELOG.md` from SUMMARY.md one-liners across all phases.
+
+After running `milestone complete` in the archive step, verify CHANGELOG was generated:
+
+```bash
+ls .planning/CHANGELOG.md 2>/dev/null && echo "CHANGELOG generated" || echo "No CHANGELOG"
+```
+
+Present: "CHANGELOG.md generated with [N] entries for ${version}"
+
+</step>
+
 <step name="create_milestone_entry">
 
 **Note:** MILESTONES.md entry is now created automatically by `hive-tools milestone complete` in the archive_milestone step. The entry includes version, date, phase/plan/task counts, and accomplishments extracted from SUMMARY.md files.
@@ -479,7 +493,21 @@ MERGE_FROM=$(echo "$MERGE_RESULT" | jq -r '.from')
 MERGE_TO=$(echo "$MERGE_RESULT" | jq -r '.to')
 ```
 
-If success: log "Merged ${MERGE_FROM} into ${MERGE_TO}." Continue to git_tag.
+If success: log "Merged ${MERGE_FROM} into ${MERGE_TO}."
+
+**Handle auto-push result:**
+
+```bash
+MERGE_AUTO_PUSH=$(echo "$MERGE_RESULT" | jq -r '.auto_push // false')
+MERGE_PUSHED=$(echo "$MERGE_RESULT" | jq -r '.pushed // false')
+MERGE_NEEDS_PUSH=$(echo "$MERGE_RESULT" | jq -r '.needs_push // false')
+```
+
+- If `MERGE_PUSHED` is true: log "Pushed ${MERGE_TO} to remote."
+- If `MERGE_NEEDS_PUSH` is true: log "Merge complete. Run `git push origin ${MERGE_TO}` to push to remote."
+
+Continue to git_tag.
+
 If failure (merge conflict): present to user with options:
 - "resolve" -- User resolves conflicts manually, then proceed
 - "abort" -- Abort the merge, cancel milestone completion
@@ -634,7 +662,7 @@ git push origin v[X.Y]
 Commit milestone completion.
 
 ```bash
-node ~/.claude/hive/bin/hive-tools.js commit "chore: complete v[X.Y] milestone" --files .planning/milestones/v[X.Y]-ROADMAP.md .planning/milestones/v[X.Y]-REQUIREMENTS.md .planning/milestones/v[X.Y]-MILESTONE-AUDIT.md .planning/MILESTONES.md .planning/PROJECT.md .planning/STATE.md
+node ~/.claude/hive/bin/hive-tools.js commit "chore: complete v[X.Y] milestone" --files .planning/milestones/v[X.Y]-ROADMAP.md .planning/milestones/v[X.Y]-REQUIREMENTS.md .planning/milestones/v[X.Y]-MILESTONE-AUDIT.md .planning/MILESTONES.md .planning/CHANGELOG.md .planning/PROJECT.md .planning/STATE.md
 ```
 ```
 
