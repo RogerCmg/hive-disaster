@@ -192,8 +192,13 @@ function loadConfig(cwd) {
     git_build_gates_pre_merge: true,
     git_build_gates_pre_main: true,
     git_build_command: null,
+    git_pre_main_command: null,
     git_build_timeout: 300,
     git_merge_strategy: 'merge',
+    git_require_build: false,
+    git_main_branch: 'main',
+    git_protected_branches: [],
+    git_auto_push: false,
   };
 
   try {
@@ -236,8 +241,13 @@ function loadConfig(cwd) {
       git_build_gates_pre_merge: buildGates.pre_merge ?? defaults.git_build_gates_pre_merge,
       git_build_gates_pre_main: buildGates.pre_main ?? defaults.git_build_gates_pre_main,
       git_build_command: gitSection.build_command ?? defaults.git_build_command,
+      git_pre_main_command: gitSection.pre_main_command ?? defaults.git_pre_main_command,
       git_build_timeout: gitSection.build_timeout ?? defaults.git_build_timeout,
       git_merge_strategy: gitSection.merge_strategy ?? defaults.git_merge_strategy,
+      git_require_build: buildGates.require_build ?? defaults.git_require_build,
+      git_main_branch: gitSection.main_branch ?? defaults.git_main_branch,
+      git_protected_branches: gitSection.protected_branches ?? defaults.git_protected_branches,
+      git_auto_push: gitSection.auto_push ?? defaults.git_auto_push,
     };
   } catch {
     return defaults;
@@ -372,19 +382,37 @@ function withFileLock(filePath, fn) {
 
 function execCommand(command, args, options) {
   const opts = options || {};
-  const result = spawnSync(command, args, {
+  const spawnOpts = {
     cwd: opts.cwd || process.cwd(),
     encoding: 'utf-8',
     timeout: opts.timeout,
     stdio: ['pipe', 'pipe', 'pipe'],
-  });
+  };
+
+  // On non-Windows: create process group so we can kill the entire tree on timeout
+  if (process.platform !== 'win32') {
+    spawnOpts.detached = true;
+  }
+
+  const result = spawnSync(command, args, spawnOpts);
+
+  // If timed out, kill the entire process group (not just the parent)
+  const timedOut = (result.error && result.error.code === 'ETIMEDOUT') || false;
+  if (timedOut && result.pid && process.platform !== 'win32') {
+    try {
+      process.kill(-result.pid, 'SIGKILL');
+    } catch (_) {
+      // Process group may already be dead — safe to ignore
+    }
+  }
+
   return {
     success: result.status === 0,
     exitCode: result.status,
     stdout: (result.stdout || '').trim(),
     stderr: (result.stderr || '').trim(),
     signal: result.signal || null,
-    timedOut: (result.error && result.error.code === 'ETIMEDOUT') || false,
+    timedOut: timedOut,
   };
 }
 
@@ -3593,6 +3621,115 @@ function cmdPhaseComplete(cwd, phaseNum, raw) {
   output(result, raw);
 }
 
+// ─── CHANGELOG Generation ────────────────────────────────────────────────────
+
+function generateChangelog(cwd, version, milestoneName, phases) {
+  const changelogPath = path.join(cwd, '.planning', 'CHANGELOG.md');
+  const today = new Date().toISOString().split('T')[0];
+
+  // Categorize entries by type
+  const added = [];
+  const changed = [];
+  const fixed = [];
+
+  for (const phase of phases) {
+    const phaseName = phase.name || '';
+    for (const summary of (phase.summaries || [])) {
+      const oneLiner = summary.oneLiner || '';
+      const accomplishments = summary.accomplishments || [];
+
+      // Classify based on commit type prefixes in one-liners
+      const lowerOneLiner = oneLiner.toLowerCase();
+      if (lowerOneLiner.startsWith('fix') || lowerOneLiner.includes('bug fix') || lowerOneLiner.includes('fixed')) {
+        if (oneLiner) fixed.push(oneLiner);
+      } else if (lowerOneLiner.startsWith('refactor') || lowerOneLiner.startsWith('change') || lowerOneLiner.startsWith('update') || lowerOneLiner.includes('redesign')) {
+        if (oneLiner) changed.push(oneLiner);
+      } else {
+        if (oneLiner) added.push(oneLiner);
+      }
+
+      // Add accomplishment bullets as additional entries
+      for (const acc of accomplishments) {
+        const lowerAcc = acc.toLowerCase();
+        if (lowerAcc.startsWith('fix') || lowerAcc.includes('bug fix')) {
+          fixed.push(acc);
+        } else if (lowerAcc.startsWith('refactor') || lowerAcc.startsWith('change') || lowerAcc.startsWith('update')) {
+          changed.push(acc);
+        } else {
+          added.push(acc);
+        }
+      }
+    }
+  }
+
+  // Build version section
+  let section = `## [${version}] - ${today}\n`;
+  if (added.length > 0) {
+    section += `\n### Added\n`;
+    for (const entry of added) {
+      section += `- ${entry}\n`;
+    }
+  }
+  if (changed.length > 0) {
+    section += `\n### Changed\n`;
+    for (const entry of changed) {
+      section += `- ${entry}\n`;
+    }
+  }
+  if (fixed.length > 0) {
+    section += `\n### Fixed\n`;
+    for (const entry of fixed) {
+      section += `- ${entry}\n`;
+    }
+  }
+
+  // If no entries at all, add a placeholder
+  if (added.length === 0 && changed.length === 0 && fixed.length === 0) {
+    section += `\n### Added\n- ${milestoneName} milestone completed\n`;
+  }
+
+  // Write or update CHANGELOG.md
+  if (fs.existsSync(changelogPath)) {
+    let existing = fs.readFileSync(changelogPath, 'utf-8');
+
+    // Insert after ## [Unreleased] section if it exists
+    const unreleasedIndex = existing.indexOf('## [Unreleased]');
+    if (unreleasedIndex !== -1) {
+      // Find the next ## heading after [Unreleased]
+      const afterUnreleased = existing.indexOf('\n## [', unreleasedIndex + 1);
+      if (afterUnreleased !== -1) {
+        // Insert between [Unreleased] section and next version
+        existing = existing.slice(0, afterUnreleased) + '\n' + section + existing.slice(afterUnreleased);
+      } else {
+        // [Unreleased] is last section — append after it
+        existing = existing.trimEnd() + '\n\n' + section;
+      }
+    } else {
+      // No [Unreleased] — insert after the header block (first blank line after header)
+      const headerEnd = existing.indexOf('\n\n');
+      if (headerEnd !== -1) {
+        existing = existing.slice(0, headerEnd + 2) + section + '\n' + existing.slice(headerEnd + 2);
+      } else {
+        existing = existing + '\n\n' + section;
+      }
+    }
+
+    fs.writeFileSync(changelogPath, existing, 'utf-8');
+  } else {
+    // Create new CHANGELOG.md
+    const header = `# Changelog\n\nAll notable changes to this project.\n\nFormat follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).\n\n`;
+    fs.writeFileSync(changelogPath, header + section, 'utf-8');
+  }
+
+  return {
+    path: changelogPath,
+    entries: added.length + changed.length + fixed.length,
+    added: added.length,
+    changed: changed.length,
+    fixed: fixed.length,
+  };
+}
+
 // ─── Milestone Complete ───────────────────────────────────────────────────────
 
 function cmdMilestoneComplete(cwd, version, options, raw) {
@@ -3617,6 +3754,7 @@ function cmdMilestoneComplete(cwd, version, options, raw) {
   let totalPlans = 0;
   let totalTasks = 0;
   const accomplishments = [];
+  const phaseData = []; // For CHANGELOG generation
 
   try {
     const entries = fs.readdirSync(phasesDir, { withFileTypes: true });
@@ -3629,19 +3767,39 @@ function cmdMilestoneComplete(cwd, version, options, raw) {
       const summaries = phaseFiles.filter(f => f.endsWith('-SUMMARY.md') || f === 'SUMMARY.md');
       totalPlans += plans.length;
 
+      const phaseSummaries = [];
+
       // Extract one-liners from summaries
       for (const s of summaries) {
         try {
           const content = fs.readFileSync(path.join(phasesDir, dir, s), 'utf-8');
           const fm = extractFrontmatter(content);
-          if (fm['one-liner']) {
-            accomplishments.push(fm['one-liner']);
+          const oneLiner = fm['one-liner'] || '';
+          if (oneLiner) {
+            accomplishments.push(oneLiner);
           }
+
+          // Extract accomplishment bullets from body
+          const accBullets = [];
+          const accMatch = content.match(/##\s*(?:Key\s+)?Accomplishments?\s*\n([\s\S]*?)(?=\n##|\n---|\Z)/i);
+          if (accMatch) {
+            const bullets = accMatch[1].match(/^[-*]\s+(.+)/gm);
+            if (bullets) {
+              for (const b of bullets) {
+                accBullets.push(b.replace(/^[-*]\s+/, '').trim());
+              }
+            }
+          }
+
+          phaseSummaries.push({ oneLiner, accomplishments: accBullets });
+
           // Count tasks
           const taskMatches = content.match(/##\s*Task\s*\d+/gi) || [];
           totalTasks += taskMatches.length;
         } catch {}
       }
+
+      phaseData.push({ name: dir, summaries: phaseSummaries });
     }
   } catch {}
 
@@ -3693,6 +3851,9 @@ function cmdMilestoneComplete(cwd, version, options, raw) {
     fs.writeFileSync(statePath, stateContent, 'utf-8');
   }
 
+  // Generate CHANGELOG.md
+  const changelogResult = generateChangelog(cwd, version, milestoneName, phaseData);
+
   const result = {
     version,
     name: milestoneName,
@@ -3705,7 +3866,10 @@ function cmdMilestoneComplete(cwd, version, options, raw) {
       roadmap: fs.existsSync(path.join(archiveDir, `${version}-ROADMAP.md`)),
       requirements: fs.existsSync(path.join(archiveDir, `${version}-REQUIREMENTS.md`)),
       audit: fs.existsSync(path.join(archiveDir, `${version}-MILESTONE-AUDIT.md`)),
+      changelog: changelogResult.path,
     },
+    changelog_generated: true,
+    changelog_entries: changelogResult.entries,
     milestones_updated: true,
     state_updated: fs.existsSync(statePath),
   };
@@ -5369,31 +5533,63 @@ function cmdGitCreatePlanBranch(cwd, branchName, raw) {
   }
 }
 
-function cmdGitRunBuildGate(cwd, raw) {
+function cmdGitRunBuildGate(cwd, gate, raw) {
   const config = loadConfig(cwd);
   if (config.git_flow === 'none') {
     output({ success: true, skipped: true, reason: 'git.flow is none' }, raw, 'skipped');
     return;
   }
 
-  const buildCmd = config.git_build_command || detectBuildCommand(cwd).command;
+  // Gate-specific command selection: pre_main_command for Gate 3, build_command for others
+  let buildCmd;
+  if (gate === 'pre_main' && config.git_pre_main_command) {
+    buildCmd = config.git_pre_main_command;
+  } else {
+    buildCmd = config.git_build_command || detectBuildCommand(cwd).command;
+  }
   if (!buildCmd) {
+    if (config.git_require_build) {
+      output({ success: false, error: 'require_build is true but no build command detected. Set git.build_command in config.json or add a test script to package.json.', required: true }, raw, 'fail');
+      return;
+    }
     output({ success: true, skipped: true, reason: 'no build command detected' }, raw, 'skipped');
     return;
   }
 
   const timeoutMs = (config.git_build_timeout || 300) * 1000;
-  const parts = buildCmd.split(/\s+/);
-  const result = execCommand(parts[0], parts.slice(1), { cwd, timeout: timeoutMs });
 
+  // Support array of commands (pipeline) or single string
+  const commands = Array.isArray(buildCmd) ? buildCmd : [buildCmd];
+  let lastResult = null;
+
+  for (const cmd of commands) {
+    const parts = cmd.split(/\s+/);
+    lastResult = execCommand(parts[0], parts.slice(1), { cwd, timeout: timeoutMs });
+    if (!lastResult.success) {
+      output({
+        success: false,
+        command: cmd,
+        pipeline: commands.length > 1 ? commands : undefined,
+        failed_at: commands.indexOf(cmd) + 1,
+        exitCode: lastResult.exitCode,
+        timedOut: lastResult.timedOut || false,
+        stdout: lastResult.stdout.slice(0, 2000),
+        stderr: lastResult.stderr.slice(0, 2000),
+      }, raw, 'fail');
+      return;
+    }
+  }
+
+  // All commands passed
   output({
-    success: result.success,
-    command: buildCmd,
-    exitCode: result.exitCode,
-    timedOut: result.timedOut || false,
-    stdout: result.stdout.slice(0, 2000),
-    stderr: result.stderr.slice(0, 2000),
-  }, raw, result.success ? 'pass' : 'fail');
+    success: true,
+    command: commands.length === 1 ? commands[0] : commands.join(' && '),
+    pipeline: commands.length > 1 ? commands : undefined,
+    exitCode: 0,
+    timedOut: false,
+    stdout: (lastResult ? lastResult.stdout : '').slice(0, 2000),
+    stderr: (lastResult ? lastResult.stderr : '').slice(0, 2000),
+  }, raw, 'pass');
 }
 
 function cmdGitCreatePr(cwd, options, raw) {
@@ -5422,7 +5618,7 @@ function cmdGitCreatePr(cwd, options, raw) {
   }
 }
 
-function cmdGitSelfMergePr(cwd, prNumber, raw) {
+function cmdGitSelfMergePr(cwd, prNumber, strategyOverride, raw) {
   const config = loadConfig(cwd);
   if (config.git_flow === 'none') {
     output({ success: true, skipped: true, reason: 'git.flow is none' }, raw, 'skipped');
@@ -5434,7 +5630,14 @@ function cmdGitSelfMergePr(cwd, prNumber, raw) {
     return;
   }
 
-  const mergeStrategy = config.git_merge_strategy || 'merge';
+  // Validate strategy override if provided
+  const validStrategies = ['merge', 'squash', 'rebase'];
+  if (strategyOverride && !validStrategies.includes(strategyOverride)) {
+    output({ success: false, error: 'Invalid merge strategy: ' + strategyOverride + '. Must be one of: ' + validStrategies.join(', ') }, raw, '');
+    return;
+  }
+
+  const mergeStrategy = strategyOverride || config.git_merge_strategy || 'merge';
   const ghArgs = ['pr', 'merge', prNumber, '--' + mergeStrategy, '--delete-branch'];
   const result = execCommand('gh', ghArgs, { cwd });
 
@@ -5453,22 +5656,29 @@ function cmdGitMergeDevToMain(cwd, raw) {
   }
 
   const devBranch = config.git_dev_branch || 'dev';
+  const mainBranch = config.git_main_branch || 'main';
 
-  // Try checkout main first, fallback to master
-  let mainBranch = 'main';
-  let checkoutResult = execCommand('git', ['checkout', 'main'], { cwd });
+  let checkoutResult = execCommand('git', ['checkout', mainBranch], { cwd });
   if (!checkoutResult.success) {
-    mainBranch = 'master';
-    checkoutResult = execCommand('git', ['checkout', 'master'], { cwd });
-    if (!checkoutResult.success) {
-      output({ success: false, error: 'Could not checkout main or master branch' }, raw, '');
-      return;
-    }
+    output({ success: false, error: 'Could not checkout main branch: ' + mainBranch }, raw, '');
+    return;
   }
 
   const mergeResult = execCommand('git', ['merge', '--no-ff', devBranch, '-m', 'Merge ' + devBranch + ' into ' + mainBranch], { cwd });
   if (mergeResult.success) {
-    output({ success: true, from: devBranch, to: mainBranch, strategy: 'no-ff' }, raw, 'merged');
+    const resultObj = { success: true, from: devBranch, to: mainBranch, strategy: 'no-ff', auto_push: config.git_auto_push };
+
+    if (config.git_auto_push) {
+      const pushResult = execCommand('git', ['push', 'origin', mainBranch], { cwd });
+      resultObj.pushed = pushResult.success;
+      if (!pushResult.success) {
+        resultObj.push_error = pushResult.stderr;
+      }
+    } else {
+      resultObj.needs_push = true;
+    }
+
+    output(resultObj, raw, 'merged');
   } else {
     // Abort the failed merge
     execCommand('git', ['merge', '--abort'], { cwd });
@@ -5531,7 +5741,10 @@ function cmdGitDeletePlanBranch(cwd, branchName, raw) {
 
   // Safety: refuse to delete protected branches
   const devBranch = config.git_dev_branch || 'dev';
-  const protectedBranches = ['main', 'master', devBranch];
+  const configProtected = config.git_protected_branches || [];
+  const protectedBranches = configProtected.length > 0
+    ? [...new Set([...configProtected, devBranch])]
+    : [config.git_main_branch || 'main', devBranch];
   if (protectedBranches.includes(branchName)) {
     output({ success: false, error: 'Cannot delete protected branch: ' + branchName }, raw, '');
     return;
@@ -5625,6 +5838,9 @@ function cmdGitQueueSubmit(cwd, options, raw) {
       pr_url: options.pr_url || null,
       checks: { conflicts: null, build: null },
       error: null,
+      lease_owner: null,
+      lease_expires_at: null,
+      merge_strategy: options.merge_strategy || null,
       merged_at: null,
     };
 
@@ -5659,9 +5875,12 @@ function cmdGitQueueStatus(cwd, raw) {
 
   const queue = data.queue || [];
   const merged = data.merged || [];
+  const now = new Date().toISOString();
   const pending = queue.filter(e => e.status === 'pending');
   const inProgress = queue.filter(e => ['checking', 'building', 'merging'].includes(e.status));
   const failed = queue.filter(e => ['conflict', 'build_failed', 'merge_failed'].includes(e.status));
+  const leased = queue.filter(e => e.lease_owner && e.lease_expires_at && e.lease_expires_at > now);
+  const staleLeases = queue.filter(e => e.lease_owner && e.lease_expires_at && e.lease_expires_at <= now);
 
   output({
     success: true,
@@ -5669,11 +5888,15 @@ function cmdGitQueueStatus(cwd, raw) {
     in_progress_count: inProgress.length,
     failed_count: failed.length,
     merged_count: merged.length,
+    leased_count: leased.length,
+    stale_lease_count: staleLeases.length,
     dev_head: data.dev_head || null,
     last_updated: data.last_updated || null,
     pending: pending,
     failed: failed,
-  }, raw, JSON.stringify({ pending_count: pending.length, failed_count: failed.length, merged_count: merged.length }));
+    leased: leased,
+    stale_leases: staleLeases,
+  }, raw, JSON.stringify({ pending_count: pending.length, failed_count: failed.length, merged_count: merged.length, leased_count: leased.length, stale_lease_count: staleLeases.length }));
 }
 
 function cmdGitQueueUpdate(cwd, options, raw) {
@@ -5716,7 +5939,19 @@ function cmdGitQueueUpdate(cwd, options, raw) {
     if (options.pr_number) entry.pr_number = parseInt(options.pr_number, 10);
     if (options.pr_url) entry.pr_url = options.pr_url;
 
+    // Lease management
+    if (options.lease_owner) {
+      entry.lease_owner = options.lease_owner;
+      entry.lease_expires_at = new Date(Date.now() + (parseInt(options.lease_ttl, 10) || 300) * 1000).toISOString();
+    }
+
     const terminalStatuses = ['merged', 'conflict', 'build_failed', 'merge_failed'];
+
+    // Clear lease on terminal status
+    if (newStatus && terminalStatuses.includes(newStatus)) {
+      entry.lease_owner = null;
+      entry.lease_expires_at = null;
+    }
 
     if (newStatus === 'merged') {
       entry.merged_at = new Date().toISOString();
@@ -5852,6 +6087,10 @@ function cmdGitRunGate2(cwd, branchName, raw) {
   const buildCmd = config.git_build_command || detectBuildCommand(cwd).command;
   if (!buildCmd) {
     execCommand('git', ['merge', '--abort'], { cwd });
+    if (config.git_require_build) {
+      output({ success: false, gate: 'pre_merge', error: 'require_build is true but no build command detected', required: true }, raw, 'fail');
+      return;
+    }
     output({ success: true, gate: 'pre_merge', skipped: true, reason: 'no build command' }, raw, 'skipped');
     return;
   }
@@ -5860,17 +6099,23 @@ function cmdGitRunGate2(cwd, branchName, raw) {
   const timeoutMs = (config.git_build_timeout || 300) * 1000;
   let buildResult;
   try {
-    const parts = buildCmd.split(/\s+/);
-    buildResult = execCommand(parts[0], parts.slice(1), { cwd, timeout: timeoutMs });
+    const commands = Array.isArray(buildCmd) ? buildCmd : [buildCmd];
+    for (const cmd of commands) {
+      const parts = cmd.split(/\s+/);
+      buildResult = execCommand(parts[0], parts.slice(1), { cwd, timeout: timeoutMs });
+      if (!buildResult.success) break;
+    }
   } finally {
     execCommand('git', ['merge', '--abort'], { cwd });
   }
 
+  const commands = Array.isArray(buildCmd) ? buildCmd : [buildCmd];
   output({
     success: buildResult.success,
     gate: 'pre_merge',
     branch: branchName,
-    command: buildCmd,
+    command: commands.length === 1 ? commands[0] : commands.join(' && '),
+    pipeline: commands.length > 1 ? commands : undefined,
     exitCode: buildResult.exitCode,
     timedOut: buildResult.timedOut || false,
     stdout: buildResult.stdout.slice(0, 2000),
@@ -6312,7 +6557,9 @@ async function main() {
         const branchName = nameIdx !== -1 ? args[nameIdx + 1] : null;
         cmdGitCreatePlanBranch(cwd, branchName, raw);
       } else if (subcommand === 'run-build-gate') {
-        cmdGitRunBuildGate(cwd, raw);
+        const gateIndex = args.indexOf('--gate');
+        const gate = gateIndex !== -1 && args[gateIndex + 1] ? args[gateIndex + 1] : null;
+        cmdGitRunBuildGate(cwd, gate, raw);
       } else if (subcommand === 'create-pr') {
         const baseIdx = args.indexOf('--base');
         const titleIdx = args.indexOf('--title');
@@ -6323,7 +6570,9 @@ async function main() {
           body: bodyIdx !== -1 ? args[bodyIdx + 1] : null,
         }, raw);
       } else if (subcommand === 'self-merge-pr') {
-        cmdGitSelfMergePr(cwd, args[2], raw);
+        const strategyIdx = args.indexOf('--strategy');
+        const strategy = strategyIdx !== -1 ? args[strategyIdx + 1] : null;
+        cmdGitSelfMergePr(cwd, args[2], strategy, raw);
       } else if (subcommand === 'merge-dev-to-main') {
         cmdGitMergeDevToMain(cwd, raw);
       } else if (subcommand === 'check-conflicts') {
@@ -6338,12 +6587,14 @@ async function main() {
         const waveIdx = args.indexOf('--wave');
         const prNumIdx = args.indexOf('--pr-number');
         const prUrlIdx = args.indexOf('--pr-url');
+        const mergeStratIdx = args.indexOf('--merge-strategy');
         cmdGitQueueSubmit(cwd, {
           plan_id: planIdIdx !== -1 ? args[planIdIdx + 1] : null,
           branch: branchIdx !== -1 ? args[branchIdx + 1] : null,
           wave: waveIdx !== -1 ? args[waveIdx + 1] : null,
           pr_number: prNumIdx !== -1 ? args[prNumIdx + 1] : null,
           pr_url: prUrlIdx !== -1 ? args[prUrlIdx + 1] : null,
+          merge_strategy: mergeStratIdx !== -1 ? args[mergeStratIdx + 1] : null,
         }, raw);
       } else if (subcommand === 'queue-status') {
         cmdGitQueueStatus(cwd, raw);
@@ -6354,6 +6605,8 @@ async function main() {
         const mergeShaIdx = args.indexOf('--merge-sha');
         const prNumIdx = args.indexOf('--pr-number');
         const prUrlIdx = args.indexOf('--pr-url');
+        const leaseOwnerIdx = args.indexOf('--lease-owner');
+        const leaseTtlIdx = args.indexOf('--lease-ttl');
         cmdGitQueueUpdate(cwd, {
           id: idIdx !== -1 ? args[idIdx + 1] : null,
           status: statusIdx !== -1 ? args[statusIdx + 1] : null,
@@ -6361,6 +6614,8 @@ async function main() {
           merge_sha: mergeShaIdx !== -1 ? args[mergeShaIdx + 1] : null,
           pr_number: prNumIdx !== -1 ? args[prNumIdx + 1] : null,
           pr_url: prUrlIdx !== -1 ? args[prUrlIdx + 1] : null,
+          lease_owner: leaseOwnerIdx !== -1 ? args[leaseOwnerIdx + 1] : null,
+          lease_ttl: leaseTtlIdx !== -1 ? args[leaseTtlIdx + 1] : null,
         }, raw);
       } else if (subcommand === 'queue-drain') {
         cmdGitQueueDrain(cwd, raw);

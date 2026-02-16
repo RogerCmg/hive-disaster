@@ -41,3 +41,13 @@
 
 ---
 
+
+## v2.1 Git Flow Hardening (Shipped: 2026-02-16)
+
+**Phases completed:** 15 phases, 32 plans, 0 tasks
+
+**Key accomplishments:**
+- CHANGELOG generation from SUMMARY.md one-liners in Keep a Changelog format, plus config-gated auto-push after dev-to-main merge
+
+---
+

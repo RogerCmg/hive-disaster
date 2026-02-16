@@ -1,0 +1,139 @@
+# Changelog
+
+All notable changes to this project.
+
+Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
+
+## [v2.1] - 2026-02-16
+
+### Added
+- Built JSONL append-only event store with structured envelope format (ts, session, type, v, data)
+- Added working `hive-tools.js telemetry emit` CLI command with full validation, config gating, and auto-rotation
+- Defined 10 event types (agent_completion, tool_error, deviation, checkpoint, verification_gap, plan_revision, user_correction, fallback, context_compaction, session_summary)
+- Created 5 reusable helper functions for all subsequent telemetry commands (Plans 02 and 03)
+- Added `telemetry query` command with --type, --since (7d/24h/30m/ISO), and --limit (default 50) filters
+- Added `telemetry stats` command showing total events, file si
+- Added `telemetry digest` command that reads events.jsonl and generates human-readable INSIGHTS.md with markdown tables
+- INSIGHTS.md includes Event Summary (type counts with percentages), Agent Performance (completions and avg duration), Recent Deviations (last 5), and Tool Errors sections
+- Empty events produce a clean stub INSIGHTS.md with "No events recorded yet"
+- All 5 telemetry subcommands (emit, query, digest, rotate, stats) wired and verified end-to-end
+- All 5 Phase 1 success criteria validated: emit JSONL, query filters, digest generation, file rotation, config toggle
+- Created hive-recall-agent.js as the first Recall hook following the full observer pattern (stdin parse, hive- prefix filter, config gate, Phase 1 envelope format, JSONL append)
+- Added session_boundary to VALID_EVENT_TYPES (now 11 types) for session lifecycle tracking
+- Registered all 5 hook events in settings.json (SubagentStop, PostToolUseFailure, PreCompact, SessionStart, SessionEnd) preserving existing hive-check-update.js
+- PostToolUseFailure observer captures tool errors with tool name, command (for Bash), and error message, while filtering out user interrupts
+- PreCompact observer captures context compaction events with trigger type (manual/auto) and custom instructions
+- Session boundary observer handles both start and end via CLI argument, with end mode counting session events and agents spawned from events.jsonl
+- Added WORKFLOW_EVENT_TYPES config enforcement to cmdTelemetryEmit -- silently skips deviation, checkpoint, verification_gap, plan_revision, user_correction when workflow_events is false
+- Added deviation emit instructions to execute-plan.md after Rules 1-3 auto-fix and Rule 4 resolution
+- Added user_correction emit instructions at identify_plan gate and verification_failure_gate
+- Added checkpoint emit instructions to execute-phase.md in both team mode and standalone mode
+- verify-phase.md now emits verification_gap events at all three verification levels (truth FAILED, artifact MISSING/STUB/ORPHANED, wiring NOT_WIRED/PARTIAL)
+- plan-phase.md now emits plan_revision events in both team_mode and standalone_mode revision loops with round tracking
+- plan-phase.md now emits user_correction events at max iteration gates in both modes capturing user choice
+- Enhanced cmdTelemetryDigest with recurring pattern detection, tool error frequency analysis, verification gap tracking, checkpoint outcome counting, deviation trend analysis, and concrete recommendations
+- Added Top Patterns section with recall-start/recall-end markers for machine extraction, capped at 5 lines
+- Created getRecallContext(cwd) helper that extracts patterns from INSIGHTS.md via regex, returning null when no actionable patterns exist
+- Injected recall_context field into all 8 agent-spawning init commands (execute-phase, plan-phase, new-project, new-milestone, quick, verify-work, phase-op, map-codebase)
+- Verified 4 display-only commands (progress, todos, resume, milestone-op) correctly excluded
+- Added RECALL extraction from init JSON to all 10 workflow files that spawn agents
+- Injected conditional `<recall>` blocks into 36 Task() prompts across all workflows
+- Core workflows (execute-phase, plan-phase, quick) handle 3+4+2=9 injection points for executors, planners, researchers, checkers, and verifiers
+- Remaining 7 workflows (new-project, new-milestone, research-phase, verify-work, diagnose-issues, map-codebase, audit-milestone) handle 27 injection points across researchers, synthesi
+- Created /hive:insights slash command at commands/hive/insights.md following the progress.md pattern
+- Created insights workflow at hive/workflows/insights.md with load, display, staleness check, and regeneration steps
+- Created installed copies at .claude/commands/hive/ and .claude/hive/workflows/ with correct ./.claude/ path convention
+- Workflow displays INSIGHTS.md content, detects stale data by comparing timestamps, and offers digest regeneration
+- Installer registers 5 Recall hook events (SubagentStop, PostToolUseFailure, PreCompact, SessionStart, SessionEnd) in settings.json during install
+- Registration is idempotent via `.some()` guard -- running install twice produces no duplicates
+- Uninstall now removes all 4 hive-recall-*.js files and cleans ALL event types in settings.json using pattern matching
+- Fresh projects get telemetry config section (enabled, hooks, workflow_events, transcript_analysis) via cmdConfigEnsureSection
+- Added `telemetry transcript` CLI subcommand with resolveClaudeProjectDir, findLatestTranscript, and cmdTelemetryTranscript functions for extracting and condensing Claude Code JSONL session transcripts
+- Created hive-recall-analyst agent definition with 4 quality dimensions (reasoning quality, wasted context, retry patterns, user interaction), privacy rules, and structured JSON output format
+- Created /hive:analy
+- Added `detectCrossSessionPatterns()` function that queries accumulated session_summary events with a sliding window of 10, computes quality/waste trends via simple averaging, and aggregates recurring patterns/recommendations/preferences by frequency
+- Added `--cross-session` flag to `telemetry transcript` command routing to invoke cross-session analysis instead of transcript extraction
+- Session_summary events now processed in telemetry digest: patterns feed into allPatternItems (type SESSION), recommendations with count >= 2 feed into recommendations, and a new Session Analysis markdown section shows session count and average quality score
+- execute-plan.md now extracts recall_context from init JSON and includes recall block instructions in all 4 spawn patterns (A, B, A-team, B-team), completing recall coverage across all 11 agent-spawning workflows
+- REQUIREMENTS.md updated: all 34 v1 checkboxes checked, all 34 traceability rows marked Done, last-updated reflects Phase 7 gap closure
+- Added crash-safe file primitives: mkdir-based locking with stale detection and atomic temp+rename writes
+- Added execCommand spawnSync wrapper that returns structured results without throwing on non-
+- Implemented 9 git subcommand handlers covering full branch lifecycle (create/delete), build gates, PR creation/merge, conflict detection, and dev-to-main merge
+- All workflow subcommands check config.git_flow and skip with structured JSON when set to "none" (SETUP-04 complete)
+- Protected branch safety prevents deletion of main, master, or configured dev branch
+- 13 comprehensive tests covering all subcommands, flow bypass, error cases, and branch lifecycle
+- Extended all three init commands (new-project, new-milestone, execute-phase) to return git_flow and git_dev_branch config fields
+- Wired dev branch creation into new-project.md and new-milestone.md workflows via create-dev-branch subcommand
+- Rewrote handle_branching step in execute-phase.md with plan-level branch creation (hive/phase-{N}-{plan}-{slug})
+- Added plan branch cleanup step after wave completion in both team and standalone execution modes
+- Preserved legacy branching_strategy fallback for backward compatibility
+- Added build_gate step to execute-plan.md workflow between record_completion_time and generate_user_setup
+- Build gate checks git.flow and git.build_gates.pre_pr config before running -- gates are on by default
+- Calls run-build-gate subcommand (Phase 8) and handles all 4 result types: passed, skipped, timeout, failed
+- On failure/timeout, presents fix/skip/stop options with both team mode and classic mode messaging
+- Source and installed copies synced and verified identical
+- Added `create_pr_and_merge` step to execute-plan.md between `create_summary` and `generate_user_setup`
+- Reordered `create_summary` to run immediately after `build_gate` (moved up from after `generate_user_setup`)
+- PR body constructed from SUMMARY.md one-liner, task commits table, build gate result, and phase context
+- Full degradation chain: git flow disabled, build gate failed, gh CLI unavailable, push failed, PR creation failed, merge conflict
+- After successful merge, checks out dev and pulls to sync merge commit locally
+- Replaced Phase 9 "not yet merged" placeholder cleanup with active post-merge branch deletion in both team and standalone modes of execute-phase.md
+- Added merge_dev_to_main step to complete-milestone.md with Gate 3 pre-main build validation
+- Wired mutual exclusion between git_flow (github) and legacy branching_strategy (handle_branches) paths
+- Branch cleanup now verifies dev checkout state before deletion and provides specific failure messages
+- Added cmdGitStatus function to hive-tools.js returning branch, ahead/behind counts, open PR count, gh availability, git flow config, and dev branch
+- Registered git-status subcommand in CLI router with updated available subcommands list
+- Added git_status step to progress.md workflow (between position and report steps)
+- Added conditional Git Status section to progress report template (shown only when git_flow is not "none")
+- 5 new git subcommands: queue-submit, queue-status, queue-update, queue-drain, run-gate-2
+- Merge queue with file-lock protection, signal file writes on terminal status changes
+- Gate 2 pre-merge build validation with crash recovery and guaranteed merge --abort
+- CLI router updated with all new subcommands in Available list
+- Repo manager agent definition with init, verify_branch, process_queue, and summary steps
+- Thin command dispatcher `/hive:manage-repo` linking to workflow
+- Workflow with init_context, verify_environment, process_waves, and report_results steps
+- Dual-location workflow sync (source uses `~/`, installed uses `./`)
+- Added `repo_manager: false` config flag to git section of config template
+- Added step 3.5 to create_pr_and_merge: config-gated merge path decision
+- When repo_manager is true: submit to merge queue via `hive-tools.js git queue-submit`, skip self-merge
+- When repo_manager is false (default): existing Phase 10 self-merge flow runs unchanged
+- Added "queued" as valid PR_FLOW_RESULT with queue-specific SUMMARY format
+- Fallback from queue submission failure to self-merge for resilience
+- execCommand now spawns child processes in their own process group (detached:true on non-Windows)
+- On timeout, sends SIGKILL to the entire process group (-pid) instead of just the parent
+- Return shape completely unchanged -- all callers (cmdGitRunBuildGate, cmdGitRunGate2, etc.) work without modification
+- Both copies of hive-tools.js updated identically
+- Added git pull origin dev between waves in both team_mode and standalone_mode sections of execute-phase.md
+- Added git pull in dynamic_wave_scheduling pseudocode after PLAN COMPLETE
+- Added Gate 2 validation (run-gate-2) in execute-plan.md queue-submit fallback path
+- Both source (hive/) and installed (.claude/hive/) copies updated with correct path conventions
+- build_command now accepts an array of commands that execute sequentially, stopping on first failure
+- Single-string build_command continues to work unchanged (full backward compatibility)
+- New require_build flag causes build gates to error instead of silently skipping when no build command is detected
+- Both cmdGitRunBuildGate and cmdGitRunGate2 updated with matching behavior
+- cmdGitRunBuildGate accepts --gate parameter for gate-specific command selection
+- pre_main_command config field enables separate heavier validation for milestone completion (Gate 3)
+- Full backward compatibility: existing callers without --gate work unchanged
+- complete-milestone.md workflow now passes --gate pre_main to Gate 3 build validation
+- Queue entries now include lease_owner and lease_expires_at fields for multi-worker coordination
+- queue-update accepts --lease-owner and --lease-ttl for claiming entries; leases auto-clear on terminal status
+- queue-status reports leased_count and stale_lease_count for monitoring
+- merge-dev-to-main uses config.git.main_branch instead of hardcoded main/master fallback
+- delete-plan-branch uses config.git.protected_branches or auto-derives from main + dev
+- self-merge-pr now accepts --strategy flag that overrides global config with validation (merge/squash/rebase)
+- queue-submit stores per-plan merge_strategy in queue entries via --merge-strategy flag
+- execute-plan reads merge_strategy from PLAN.md frontmatter and passes it to both self-merge-pr and queue-submit
+- manage-repo reads merge_strategy from queue entries and passes it to self-merge-pr during wave processing
+- Full backward compatibility: no merge_strategy in frontmatter uses global config default
+- generateChangelog function reads SUMMARY.md one-liners and accomplishment bullets, categori
+- Added `auto_push: false` field to config.json template for user discoverability
+- Created comprehensive merge strategy reference in git-integration.md covering merge, squash, and rebase
+- Documented trade-offs for each strategy with clear use-case guidance
+- Included per-plan frontmatter override example and auto_push CI/CD guidance
+
+### Changed
+- Updated config template with telemetry section and .gitignore with event file patterns
+- Updated build-hooks.js HOOKS_TO_COPY with 4 new Recall hooks (6 total)
+- Updated analy
+- Updated create_summary step to include Build Gate section in SUMMARY.md with result tracking
+- CHANGELOG generation from SUMMARY.md one-liners in Keep a Changelog format, plus config-gated auto-push after dev-to-main merge

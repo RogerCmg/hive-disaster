@@ -4,6 +4,7 @@
 
 - ✅ **v1.0 Hive Recall** — Phases 1-7 (shipped 2026-02-12)
 - ✅ **v2.0 Hive Pro Git Flow** — Phases 8-11 (shipped 2026-02-12)
+- ✅ **v2.1 Git Flow Hardening** — Phases 12-15 (shipped 2026-02-16)
 
 ## Phases
 
@@ -30,6 +31,16 @@
 
 </details>
 
+<details>
+<summary>✅ v2.1 Git Flow Hardening (Phases 12-15) — SHIPPED 2026-02-16</summary>
+
+- [x] Phase 12: Resilience (2/2 plans) — completed 2026-02-15
+- [x] Phase 13: Build Pipeline (2/2 plans) — completed 2026-02-15
+- [x] Phase 14: Multi-Worker Safety (2/2 plans) — completed 2026-02-15
+- [x] Phase 15: Developer Experience (2/2 plans) — completed 2026-02-16
+
+</details>
+
 ## Progress
 
 | Phase | Milestone | Plans Complete | Status | Completed |
@@ -45,7 +56,11 @@
 | 9. Branch Lifecycle & Build Gates | v2.0 | 2/2 | Complete | 2026-02-12 |
 | 10. PR & Workflow Integration | v2.0 | 3/3 | Complete | 2026-02-12 |
 | 11. Repo Manager | v2.0 | 3/3 | Complete | 2026-02-12 |
+| 12. Resilience | v2.1 | 2/2 | Complete | 2026-02-15 |
+| 13. Build Pipeline | v2.1 | 2/2 | Complete | 2026-02-15 |
+| 14. Multi-Worker Safety | v2.1 | 2/2 | Complete | 2026-02-15 |
+| 15. Developer Experience | v2.1 | 2/2 | Complete | 2026-02-16 |
 
 ---
 *Roadmap created: 2026-02-11*
-*Last updated: 2026-02-12 after v2.0 milestone completion*
+*Last updated: 2026-02-16 — v2.1 Git Flow Hardening shipped*

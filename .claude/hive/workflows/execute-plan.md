@@ -680,6 +680,13 @@ If PR creation fails: log warning with error, set `PR_FLOW_RESULT="failed_pr_cre
 REPO_MANAGER=$(echo "$CONFIG_CONTENT" | jq -r '.git.repo_manager // false')
 ```
 
+Read per-plan merge strategy from frontmatter (available for both paths):
+
+```bash
+# Read per-plan merge strategy from frontmatter (overrides global config)
+PLAN_MERGE_STRATEGY=$(node ./.claude/hive/bin/hive-tools.js frontmatter get "${PLAN_PATH}" --field merge_strategy --raw 2>/dev/null | jq -r '.value // empty')
+```
+
 **If `REPO_MANAGER` is `true`:**
 
 Submit to merge queue instead of self-merging:
@@ -688,6 +695,12 @@ Submit to merge queue instead of self-merging:
 # Extract plan metadata from frontmatter
 PLAN_WAVE=$(grep -m1 "^wave:" "${PLAN_PATH}" | sed 's/wave: *//')
 
+# Include per-plan merge strategy if specified
+MERGE_STRAT_FLAG=""
+if [ -n "$PLAN_MERGE_STRATEGY" ]; then
+  MERGE_STRAT_FLAG="--merge-strategy ${PLAN_MERGE_STRATEGY}"
+fi
+
 # Submit to merge queue
 QUEUE_RESULT=$(node ./.claude/hive/bin/hive-tools.js git queue-submit \
   --plan-id "${PHASE}-${PLAN}" \
@@ -695,6 +708,7 @@ QUEUE_RESULT=$(node ./.claude/hive/bin/hive-tools.js git queue-submit \
   --wave "${PLAN_WAVE}" \
   --pr-number "${PR_NUMBER}" \
   --pr-url "${PR_URL}" \
+  ${MERGE_STRAT_FLAG} \
   --raw)
 QUEUE_SUCCESS=$(echo "$QUEUE_RESULT" | jq -r '.success')
 QUEUE_ID=$(echo "$QUEUE_RESULT" | jq -r '.id // empty')
@@ -707,8 +721,26 @@ If queue submission succeeded:
 - Skip to step 6 (record PR result).
 
 If queue submission failed:
-- Log warning: "Failed to submit to merge queue. Falling back to self-merge."
-- Continue to step 4 (self-merge) as fallback.
+- Log warning: "Failed to submit to merge queue. Falling back to self-merge with Gate 2 validation."
+
+**Run Gate 2 (pre-merge build validation) before self-merge:**
+
+```bash
+CURRENT_BRANCH=$(git branch --show-current)
+GATE2_RESULT=$(node ~/.claude/hive/bin/hive-tools.js git run-gate-2 --branch "${CURRENT_BRANCH}" --raw)
+GATE2_SUCCESS=$(echo "$GATE2_RESULT" | jq -r '.success')
+GATE2_SKIPPED=$(echo "$GATE2_RESULT" | jq -r '.skipped // false')
+```
+
+Handle Gate 2 result:
+
+| Condition | Action |
+|-----------|--------|
+| `GATE2_SKIPPED` is `"true"` | Gate 2 disabled or no build command. Log: "Gate 2 skipped (${reason}). Proceeding to self-merge." Continue to step 4. |
+| `GATE2_SUCCESS` is `"true"` | Gate 2 passed. Log: "Gate 2 passed. Proceeding to self-merge." Continue to step 4. |
+| `GATE2_SUCCESS` is `"false"` | Gate 2 failed. Present to user with same options as build_gate step: fix / skip / stop. If "fix": investigate, fix, re-commit, re-run Gate 2. If "skip": log "Gate 2 skipped by user. Proceeding to self-merge." Set `BUILD_GATE_RESULT="skipped_by_user"`. Continue to step 4. If "stop": abort, do NOT self-merge. Set `PR_FLOW_RESULT="stopped_gate2_failed"`. |
+
+- Continue to step 4 (self-merge) only if Gate 2 passed or was skipped.
 
 **If `REPO_MANAGER` is `false` or not set (default):**
 
@@ -731,7 +763,13 @@ PR_NUMBER=$(gh pr list --head "$(git branch --show-current)" --json number --jq 
 Merge:
 
 ```bash
-MERGE_RESULT=$(node ./.claude/hive/bin/hive-tools.js git self-merge-pr "${PR_NUMBER}" --raw)
+# Build strategy flag from per-plan merge strategy (read in step 3.5)
+STRATEGY_FLAG=""
+if [ -n "$PLAN_MERGE_STRATEGY" ]; then
+  STRATEGY_FLAG="--strategy ${PLAN_MERGE_STRATEGY}"
+fi
+
+MERGE_RESULT=$(node ./.claude/hive/bin/hive-tools.js git self-merge-pr "${PR_NUMBER}" ${STRATEGY_FLAG} --raw)
 MERGE_SUCCESS=$(echo "$MERGE_RESULT" | jq -r '.success')
 MERGE_STRATEGY=$(echo "$MERGE_RESULT" | jq -r '.strategy')
 ```

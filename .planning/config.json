@@ -6,7 +6,7 @@
   "phase_branch_template": "hive/phase-{phase}-{slug}",
   "milestone_branch_template": "hive/{milestone}-{slug}",
   "workflow": {
-    "research": true,
+    "research": false,
     "plan_check": true,
     "verifier": true
   },

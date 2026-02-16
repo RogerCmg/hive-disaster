@@ -76,7 +76,17 @@ For each wave (lowest first):
       - Pass/skip -> proceed
       - Fail -> `queue-update --status build_failed`, present fix/skip/stop options
 
-   c. **Merge PR:** `node ~/.claude/hive/bin/hive-tools.js git self-merge-pr "${PR_NUMBER}" --raw`
+   c. **Merge PR:**
+      ```bash
+      # Pass per-entry merge strategy if stored
+      ENTRY_STRATEGY=$(echo "$ENTRY" | jq -r '.merge_strategy // empty')
+      STRATEGY_FLAG=""
+      if [ -n "$ENTRY_STRATEGY" ]; then
+        STRATEGY_FLAG="--strategy ${ENTRY_STRATEGY}"
+      fi
+
+      node ~/.claude/hive/bin/hive-tools.js git self-merge-pr "${PR_NUMBER}" ${STRATEGY_FLAG} --raw
+      ```
       - Success -> `queue-update --status merged --merge-sha ${SHA}`, checkout dev, pull
       - Fail -> `queue-update --status merge_failed`, report
 

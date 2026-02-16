@@ -1,19 +1,32 @@
 # Telemetry Insights
 
-*Generated: 2026-02-12T03:15:24.432Z*
+*Generated: 2026-02-16T19:46:17.143Z*
 *Digest version: 2*
-*Period: 2026-02-12T02:25:44.933Z to 2026-02-12T02:27:26.991Z*
-*Total events: 2*
+*Period: 2026-02-12T02:25:44.933Z to 2026-02-16T19:45:51.725Z*
+*Total events: 148*
 
 ## Event Summary
 
 | Type | Count | % |
 |------|-------|---|
-| deviation | 2 | 100% |
+| tool_error | 57 | 39% |
+| session_boundary | 45 | 30% |
+| agent_completion | 43 | 29% |
+| deviation | 2 | 1% |
+| context_compaction | 1 | 1% |
 
 ## Agent Performance
 
-None recorded
+| Agent | Completions | Avg Duration |
+|-------|-------------|--------------|
+| smoke-test | 1 | 100ms |
+| hive-project-researcher | 4 | N/A |
+| hive-research-synthesizer | 1 | N/A |
+| hive-roadmapper | 2 | N/A |
+| hive-plan-checker | 8 | N/A |
+| hive-executor | 18 | N/A |
+| hive-verifier | 8 | N/A |
+| hive-integration-checker | 1 | N/A |
 
 ## Recent Deviations
 
@@ -22,14 +35,24 @@ None recorded
 
 ## Tool Errors
 
-None recorded
+| Tool | Errors |
+|------|--------|
+| Bash | 46 |
+| Read | 11 |
+
+## Recommendations
+
+- Guard recommended for Read:error (11 occurrences)
+- Guard recommended for Bash:error (46 occurrences)
 
 ## Top Patterns
 
 <!-- recall-start -->
+- PATTERN: Tool error Bash:error occurs 46 times
+- PATTERN: Tool error Read:error occurs 11 times
 - PATTERN: Deviation "unknown" recurs 1 times across phases 
-- PATTERN: Deviation "rule-1" recurs 1 times across phases test
 - TREND: Deviations stable (first half: 1, second half: 1)
+- REC: Guard recommended for Read:error (11 occurrences)
 <!-- recall-end -->
 
 ---

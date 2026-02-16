@@ -2,7 +2,7 @@
 
 ## What This Is
 
-Hive is a meta-prompting and context engineering system for Claude Code. It orchestrates AI agents through spec-driven workflows (commands → workflows → agents → tools), manages project state via markdown artifacts in `.planning/`, and executes phased roadmaps with wave-based parallelization. v1.0 added persistent memory via telemetry/recall. v2.0 shipped professional git workflow — dev branch, plan-level branching, 3-gate build validation, PR-based integration, and a repo manager with file-based merge queue.
+Hive is a meta-prompting and context engineering system for Claude Code. It orchestrates AI agents through spec-driven workflows (commands → workflows → agents → tools), manages project state via markdown artifacts in `.planning/`, and executes phased roadmaps with wave-based parallelization. v1.0 added persistent memory via telemetry/recall. v2.0 shipped professional git workflow — dev branch, plan-level branching, 3-gate build validation, PR-based integration, and a repo manager with file-based merge queue. v2.1 hardened the git flow with resilience fixes, build pipeline flexibility, multi-worker safety, and DX improvements.
 
 ## Core Value
 
@@ -55,10 +55,22 @@ Give AI agents a structured, safe path from plan to merged code — so quality s
 - ✓ execute-phase branch orchestration per wave — v2.0
 - ✓ execute-plan build gate + PR creation integration — v2.0
 - ✓ complete-milestone dev-to-main merge with Gate 3 — v2.0
+- ✓ Process group killing on build timeout — no orphan processes — v2.1
+- ✓ Dev branch sync between execution waves — v2.1
+- ✓ Gate 2 validation in queue-submit fallback path — v2.1
+- ✓ Array build pipeline (sequential, stop-on-first-failure) — v2.1
+- ✓ Gate 3 pre_main_command with fallback to build_command — v2.1
+- ✓ require_build enforcement (explicit error when no build command detected) — v2.1
+- ✓ Queue lease fields (lease_owner, lease_expires_at) for multi-worker safety — v2.1
+- ✓ Per-plan merge strategy override via PLAN.md frontmatter — v2.1
+- ✓ Configurable protected branches (not hardcoded main/master) — v2.1
+- ✓ CHANGELOG generation from SUMMARY.md in Keep a Changelog format — v2.1
+- ✓ Auto-push after dev-to-main merge (config-gated, default false) — v2.1
+- ✓ Merge strategy documentation (merge/squash/rebase with trade-offs) — v2.1
 
 ### Active
 
-(No active requirements — define in next milestone via `/hive:new-milestone`)
+(No active requirements — all milestones shipped. Start next milestone with `/hive:new-milestone`.)
 
 ### Out of Scope
 
@@ -67,27 +79,27 @@ Give AI agents a structured, safe path from plan to merged code — so quality s
 - Real-time dashboards — CLI-only, markdown digest is sufficient
 - Cross-project global insights — deferred (CROSS-01, CROSS-02, CROSS-03)
 - Auto-suggestion when deviation thresholds exceeded — deferred (AUTO-01, AUTO-02)
-- Git worktrees / multi-terminal orchestration — deferred to v2.1+
-- Worker registry and /hive:start-worker — deferred to v2.1+
-- Continuous conflict monitoring (Clash-style) — deferred to v2.1+
-- Dynamic worker assignment — deferred to v2.1+
+- Git worktrees / multi-terminal orchestration — deferred
+- Worker registry and /hive:start-worker — deferred
+- Continuous conflict monitoring (Clash-style) — deferred
+- Dynamic worker assignment — deferred
 - AI-powered conflict resolution — prevention + detection is safer than auto-resolution
 - Entity-level merge (Weave/tree-sitter) — adds native binary dependency, breaks zero-dep
 - Task-level branches — branch explosion; plan-level is correct granularity
 
 ## Context
 
-Shipped v2.0 with ~6,400 lines in hive-tools.js (both copies), 10,261 new lines total across 45 files.
+Shipped v2.1 with ~7,000 lines in hive-tools.js (both copies). 15 phases, 32 plans across 3 milestones.
 Tech stack: Pure Node.js stdlib (fs, path, child_process, os) — zero runtime dependencies.
 Git workflow integration via native `git` and `gh` CLI commands through spawnSync wrapper.
-Two milestones shipped in same day (v1.0 Recall + v2.0 Git Flow).
+Three milestones shipped: v1.0 Recall (2026-02-12), v2.0 Git Flow (2026-02-12), v2.1 Hardening (2026-02-16).
 
 ## Constraints
 
 - **Zero dependencies**: No npm packages — pure Node.js stdlib (fs, path, child_process, os)
 - **Backward compatible**: `git.flow: "none"` bypasses all git features (current behavior preserved)
 - **`gh` CLI required**: PR operations depend on GitHub CLI being installed
-- **Single-terminal first**: v2.0 targets single-terminal; multi-terminal deferred to v2.1+
+- **Single-terminal first**: v2.0 targets single-terminal; multi-terminal deferred
 - **File-based coordination**: Merge queue, signals use JSON files (no sockets, no databases)
 - **Fail-safe**: Build gate failures block progression, never silently pass broken code
 
@@ -107,6 +119,9 @@ Two milestones shipped in same day (v1.0 Recall + v2.0 Git Flow).
 | spawnSync over execSync | Structured exit handling without exceptions | ✓ Good — all 11 subcommands return JSON |
 | repo_manager defaults to false | Opt-in only, zero behavior change for existing users | ✓ Good — progressive adoption |
 | Gate 2 always aborts in finally | Crash recovery, never leaves merge state | ✓ Good — fail-safe |
+| Process group kill (-pid) over shell kill | Reliable tree-killing on timeout, handles nested processes | ✓ Good — no orphans |
+| auto_push defaults to false | Pushing is irreversible; safe default, opt-in for CI/CD | ✓ Good — safe by default |
+| Per-plan frontmatter override | Plan-specific needs without global config changes | ✓ Good — flexible, backward compatible |
 
 ---
-*Last updated: 2026-02-12 after v2.0 milestone completion*
+*Last updated: 2026-02-16 after v2.1 Git Flow Hardening shipped*

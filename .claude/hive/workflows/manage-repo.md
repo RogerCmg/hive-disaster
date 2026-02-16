@@ -3,7 +3,7 @@ Process the merge queue with wave-aware ordering, conflict detection, Gate 2 pre
 </purpose>
 
 <required_reading>
-@./.claude/hive/references/git-integration.md
+@~/.claude/hive/references/git-integration.md
 </required_reading>
 
 <process>
@@ -12,7 +12,7 @@ Process the merge queue with wave-aware ordering, conflict detection, Gate 2 pre
 Load repo manager context:
 
 ```bash
-QUEUE_STATUS=$(node ./.claude/hive/bin/hive-tools.js git queue-status --raw)
+QUEUE_STATUS=$(node ~/.claude/hive/bin/hive-tools.js git queue-status --raw)
 PENDING=$(echo "$QUEUE_STATUS" | jq -r '.pending_count')
 FAILED=$(echo "$QUEUE_STATUS" | jq -r '.failed_count')
 ```
@@ -33,7 +33,7 @@ If PENDING is 0 but FAILED > 0:
 Verify git environment is ready:
 
 ```bash
-GIT_DETECT=$(node ./.claude/hive/bin/hive-tools.js git detect --raw)
+GIT_DETECT=$(node ~/.claude/hive/bin/hive-tools.js git detect --raw)
 GIT_VERSION=$(echo "$GIT_DETECT" | jq -r '.git.version')
 MERGE_TREE=$(echo "$GIT_DETECT" | jq -r '.git.merge_tree_available')
 ```
@@ -42,7 +42,7 @@ Report: "Git ${GIT_VERSION}, merge-tree: ${MERGE_TREE}"
 
 Check current branch and ensure on dev:
 ```bash
-CURRENT_BRANCH=$(node ./.claude/hive/bin/hive-tools.js git current-branch --raw | jq -r '.branch')
+CURRENT_BRANCH=$(node ~/.claude/hive/bin/hive-tools.js git current-branch --raw | jq -r '.branch')
 DEV_BRANCH=$(cat .planning/config.json 2>/dev/null | jq -r '.git.dev_branch // "dev"')
 ```
 
@@ -54,7 +54,7 @@ Clean leftover merge state: `git merge --abort 2>/dev/null || true`.
 Read queue and process by wave.
 
 ```bash
-QUEUE_STATUS=$(node ./.claude/hive/bin/hive-tools.js git queue-status --raw)
+QUEUE_STATUS=$(node ~/.claude/hive/bin/hive-tools.js git queue-status --raw)
 PENDING_ENTRIES=$(echo "$QUEUE_STATUS" | jq -c '.pending')
 ```
 
@@ -68,15 +68,25 @@ For each wave (lowest first):
 1. Log: "Processing Wave ${WAVE} (${ENTRY_COUNT} entries)"
 
 2. For each entry in wave:
-   a. **Conflict check:** `node ./.claude/hive/bin/hive-tools.js git check-conflicts --branch "${BRANCH}" --raw`
+   a. **Conflict check:** `node ~/.claude/hive/bin/hive-tools.js git check-conflicts --branch "${BRANCH}" --raw`
       - Clean -> proceed
       - Conflict -> `queue-update --status conflict`, skip entry
 
-   b. **Gate 2 build:** `node ./.claude/hive/bin/hive-tools.js git run-gate-2 --branch "${BRANCH}" --raw`
+   b. **Gate 2 build:** `node ~/.claude/hive/bin/hive-tools.js git run-gate-2 --branch "${BRANCH}" --raw`
       - Pass/skip -> proceed
       - Fail -> `queue-update --status build_failed`, present fix/skip/stop options
 
-   c. **Merge PR:** `node ./.claude/hive/bin/hive-tools.js git self-merge-pr "${PR_NUMBER}" --raw`
+   c. **Merge PR:**
+      ```bash
+      # Pass per-entry merge strategy if stored
+      ENTRY_STRATEGY=$(echo "$ENTRY" | jq -r '.merge_strategy // empty')
+      STRATEGY_FLAG=""
+      if [ -n "$ENTRY_STRATEGY" ]; then
+        STRATEGY_FLAG="--strategy ${ENTRY_STRATEGY}"
+      fi
+
+      node ~/.claude/hive/bin/hive-tools.js git self-merge-pr "${PR_NUMBER}" ${STRATEGY_FLAG} --raw
+      ```
       - Success -> `queue-update --status merged --merge-sha ${SHA}`, checkout dev, pull
       - Fail -> `queue-update --status merge_failed`, report
 
@@ -87,7 +97,7 @@ For each wave (lowest first):
 After all processing:
 
 ```bash
-FINAL=$(node ./.claude/hive/bin/hive-tools.js git queue-status --raw)
+FINAL=$(node ~/.claude/hive/bin/hive-tools.js git queue-status --raw)
 ```
 
 Display summary: total processed, merged count, failed count, dev HEAD.

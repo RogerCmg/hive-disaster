@@ -2,26 +2,24 @@
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-02-12)
+See: .planning/PROJECT.md (updated 2026-02-16)
 
 **Core value:** Safe path from plan to merged code — quality scales with parallelism
-**Current focus:** Planning next milestone
+**Current focus:** v2.1 shipped — planning next milestone
 
 ## Current Position
 
-Phase: N/A (between milestones)
-Plan: N/A
-Status: v2.0 shipped, awaiting next milestone
-Last activity: 2026-02-12 — v2.0 milestone archived
+Milestone: v2.1 Git Flow Hardening — SHIPPED
+Status: All 3 milestones complete (v1.0, v2.0, v2.1)
+Last activity: 2026-02-16 — v2.1 milestone archived and tagged
 
-Progress: [██████████] 100% (v2.0)
+Progress: [██████████] 100% (v2.1)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 24 (v1.0: 14, v2.0: 10)
-- Average duration: ~20 min (v1.0 ~30m, v2.0 ~3.5m)
-- Total execution time: ~7h (v1.0) + ~35min (v2.0)
+- Total plans completed: 32 (v1.0: 14, v2.0: 10, v2.1: 8)
+- Average duration: ~20 min (v1.0 ~30m, v2.0 ~3.5m, v2.1 ~2.5m)
 
 **By Milestone:**
 
@@ -29,15 +27,13 @@ Progress: [██████████] 100% (v2.0)
 |-----------|--------|-------|-------|----------|
 | v1.0 Recall | 7 | 14 | ~7h | ~30m |
 | v2.0 Git Flow | 4 | 10 | ~35m | ~3.5m |
-
-*Updated after each plan completion*
+| v2.1 Hardening | 4 | 8 | ~20m | ~2.5m |
 
 ## Accumulated Context
 
 ### Decisions
 
-Decisions are logged in PROJECT.md Key Decisions table.
-All v2.0 decisions marked with outcomes (✓ Good).
+All decisions logged in PROJECT.md Key Decisions table with outcomes.
 
 ### Pending Todos
 
@@ -49,6 +45,6 @@ None.
 
 ## Session Continuity
 
-**Last session:** 2026-02-12
-**Stopped at:** v2.0 milestone archived and tagged
-**Resume file:** Next: `/hive:new-milestone` to start v2.1+
+**Last session:** 2026-02-16
+**Stopped at:** v2.1 milestone complete, tagged, ready for next milestone
+**Resume file:** Next: `/hive:new-milestone`
